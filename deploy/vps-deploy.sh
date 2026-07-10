@@ -51,20 +51,39 @@ else
   echo "    already connected"
 fi
 
-echo "==> [5/6] Install vhost + validate + reload nginx (safe: test before reload)"
-# Ensure the main nginx.conf loads conf.d (idempotent).
+echo "==> [5/6] Install vhost into nginx + activate"
+# Ensure the HOST nginx.conf includes conf.d. On this VPS picklefund-nginx mounts
+# nginx.conf as a single read-only file and does NOT mount conf.d, so:
+#   - the vhost must be copied INTO the container (docker cp), and
+#   - an include change only takes effect after the container (re)starts, because a
+#     single-file bind-mount pins the inode (sed -i creates a new inode).
 if ! grep -q 'include /etc/nginx/conf.d/\*.conf;' "$PICKLEFUND_NGINX_DIR/nginx.conf"; then
   sed -i 's#include mime.types;#include mime.types;\n  include /etc/nginx/conf.d/*.conf;#' "$PICKLEFUND_NGINX_DIR/nginx.conf"
-  echo "    added include conf.d/*.conf to nginx.conf"
+  echo "    added include conf.d/*.conf to host nginx.conf"
 fi
-mkdir -p "$PICKLEFUND_NGINX_DIR/conf.d"
-cp "$REPO_DIR/deploy/nginx-commerce.conf" "$PICKLEFUND_NGINX_DIR/conf.d/commerce.conf"
-if docker exec "$NGINX_CONTAINER" nginx -t; then
-  docker exec "$NGINX_CONTAINER" nginx -s reload
-  echo "    nginx reloaded"
+docker cp "$REPO_DIR/deploy/nginx-commerce.conf" "$NGINX_CONTAINER:/etc/nginx/conf.d/commerce.conf"
+docker exec "$NGINX_CONTAINER" rm -f /etc/nginx/conf.d/default.conf 2>/dev/null || true
+
+if docker exec "$NGINX_CONTAINER" grep -q 'include /etc/nginx/conf.d/\*.conf;' /etc/nginx/nginx.conf; then
+  # Running config already loads conf.d -> validate + hot reload (no downtime).
+  if docker exec "$NGINX_CONTAINER" nginx -t; then
+    docker exec "$NGINX_CONTAINER" nginx -s reload
+    echo "    nginx reloaded"
+  else
+    echo "ERROR: nginx -t failed — NOT reloading (PickleFund unaffected)."
+    exit 1
+  fi
 else
-  echo "ERROR: nginx config test failed — NOT reloading (PickleFund unaffected)."
-  exit 1
+  # Stale bind-mount inode: running nginx.conf lacks the include -> restart to re-bind.
+  echo "    running nginx.conf lacks include (stale inode) -> restarting nginx"
+  docker restart "$NGINX_CONTAINER"
+  sleep 4
+fi
+
+if docker exec "$NGINX_CONTAINER" nginx -T 2>/dev/null | grep -q "server_name store"; then
+  echo "    store vhost loaded ✓"
+else
+  echo "    WARNING: store vhost not detected in running config"
 fi
 
 echo "==> [6/6] Verify"

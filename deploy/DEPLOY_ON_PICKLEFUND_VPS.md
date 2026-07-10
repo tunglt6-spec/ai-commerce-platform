@@ -98,11 +98,16 @@ docker exec picklefund-nginx nginx -s reload
 > **repo** `nginx/nginx.conf` (via local → push → CI), else the next PickleFund deploy overwrites it.
 > The `commerce.conf` file is untracked and will persist.
 
-## 5. Seed the first admin (once) & rotate password
+## 5. Create the first admin (once)
+In the production container `ts-node` runs in ESM mode and cannot execute the .ts
+seed, so create the first account via the public **register** API (creates the
+user + their tenant + admin membership):
 ```bash
-docker exec -it ai-commerce-api npx ts-node prisma/seed.ts
-# Default: admin@commerce.local / Admin@12345 — change immediately in the app.
+curl -sS -X POST https://store.picklefund.uk/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@store.local","username":"storeadmin","password":"CHANGE_ME_Str0ng!","tenant_name":"My Store"}'
 ```
+Password policy: ≥8 chars, 1 uppercase, 1 number, 1 special. Then log in at the site.
 
 ## 6. Verify
 ```bash
