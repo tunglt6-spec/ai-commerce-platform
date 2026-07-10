@@ -27,6 +27,10 @@ DOMAIN="${DOMAIN:-store.picklefund.uk}"
 echo "    domain=$DOMAIN  compose=$COMPOSE_FILE"
 
 echo "==> [2/6] Build & start stack (no host ports)"
+# Clean previous project containers first (handles the service rename; named
+# volumes aic_pgdata/aic_uploads are preserved). The commerce-net network stays
+# because picklefund-nginx may be attached to it.
+docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" down --remove-orphans 2>/dev/null || true
 docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d --build
 docker builder prune -f >/dev/null 2>&1 || true
 

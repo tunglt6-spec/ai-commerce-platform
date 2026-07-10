@@ -1,13 +1,17 @@
 # AI Commerce — deploy on the SHARED VPS that already runs PickleFund.
 # Coexists behind the existing picklefund-nginx (no own proxy, no host ports).
+#
+# IMPORTANT: service names are unique (ai-commerce-*) to avoid Docker DNS name
+# collisions with PickleFund's generic "backend"/"frontend" services when
+# picklefund-nginx is attached to this network.
+#
 # Run from repo root:
 #   docker compose --env-file deploy/.env.prod -f deploy/compose.vps.yml up -d --build
 # Then bridge the existing nginx into this network (once):
 #   docker network connect commerce-net picklefund-nginx
-# See deploy/DEPLOY_ON_PICKLEFUND_VPS.md for the full runbook.
 
 services:
-  postgres:
+  ai-commerce-db:
     image: pgvector/pgvector:pg16
     container_name: ai-commerce-db
     restart: always
@@ -27,7 +31,7 @@ services:
       retries: 10
     networks: [commerce-net]
 
-  backend:
+  ai-commerce-api:
     build:
       context: ..
       dockerfile: backend/Dockerfile
@@ -36,7 +40,7 @@ services:
     mem_limit: 768m
     mem_reservation: 256m
     depends_on:
-      postgres:
+      ai-commerce-db:
         condition: service_healthy
     environment:
       NODE_ENV: production
@@ -69,7 +73,7 @@ services:
       start_period: 20s
     networks: [commerce-net]
 
-  frontend:
+  ai-commerce-web:
     build:
       context: ..
       dockerfile: frontend/Dockerfile
@@ -80,7 +84,7 @@ services:
     mem_limit: 512m
     mem_reservation: 128m
     depends_on:
-      - backend
+      - ai-commerce-api
     environment:
       NODE_ENV: production
     networks: [commerce-net]
