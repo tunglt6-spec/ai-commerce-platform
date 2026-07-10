@@ -16,6 +16,9 @@ FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+# Bind on all interfaces so the reverse proxy (another container) can reach it.
+ENV HOSTNAME=0.0.0.0
+ENV PORT=3000
 # Next standalone output (traced from repo root via outputFileTracingRoot).
 COPY --from=builder /app/frontend/.next/standalone ./
 COPY --from=builder /app/frontend/.next/static ./frontend/.next/static
