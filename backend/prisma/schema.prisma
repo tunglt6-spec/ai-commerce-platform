@@ -1,0 +1,581 @@
+// AI Commerce Platform — Prisma schema
+// Source of truth: 03_Database_Schema.sql (adapted to Prisma; multi-tenant).
+// ORM reconciliation: docs mention TypeORM as an example; Prisma is used for
+// migration safety + build reliability. Same target: PostgreSQL 15+ / pgvector.
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pgcrypto, vector]
+}
+
+// ------------------------------------------------------------------
+// Auth / Tenancy
+// ------------------------------------------------------------------
+
+model User {
+  id           String    @id @default(uuid()) @db.Uuid
+  email        String    @unique
+  username     String    @unique
+  passwordHash String    @map("password_hash")
+  firstName    String?   @map("first_name")
+  lastName     String?   @map("last_name")
+  avatarUrl    String?   @map("avatar_url")
+  role         String    @default("operator") // platform-level fallback role
+  isActive     Boolean   @default(true) @map("is_active")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  lastLoginAt  DateTime? @map("last_login_at")
+
+  ownedTenants  Tenant[]       @relation("TenantOwner")
+  memberships   UserTenant[]
+  refreshTokens RefreshToken[]
+  auditLogs     AuditLog[]
+
+  @@index([role])
+  @@map("users")
+}
+
+model Tenant {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String
+  slug        String   @unique
+  description String?
+  logoUrl     String?  @map("logo_url")
+  ownerId     String   @map("owner_id") @db.Uuid
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  owner       User         @relation("TenantOwner", fields: [ownerId], references: [id])
+  memberships UserTenant[]
+
+  @@map("tenants")
+}
+
+model UserTenant {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  role      String   @default("operator") // admin | manager | operator | viewer
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tenantId])
+  @@index([tenantId])
+  @@map("user_tenants")
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tenantId  String?   @map("tenant_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+// ------------------------------------------------------------------
+// Catalog
+// ------------------------------------------------------------------
+
+model Category {
+  id           String   @id @default(uuid()) @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  name         String
+  slug         String
+  description  String?
+  iconUrl      String?  @map("icon_url")
+  parentId     String?  @map("parent_id") @db.Uuid
+  displayOrder Int      @default(0) @map("display_order")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryTree")
+  products Product[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+  @@index([parentId])
+  @@map("categories")
+}
+
+model Product {
+  id               String   @id @default(uuid()) @db.Uuid
+  tenantId         String   @map("tenant_id") @db.Uuid
+  sku              String
+  name             String
+  description      String?
+  shortDescription String?  @map("short_description")
+  categoryId       String   @map("category_id") @db.Uuid
+  supplierId       String?  @map("supplier_id") @db.Uuid
+  costPrice        Decimal  @map("cost_price") @db.Decimal(12, 2)
+  retailPrice      Decimal  @map("retail_price") @db.Decimal(12, 2)
+
+  productScore          Decimal   @default(0) @map("product_score") @db.Decimal(5, 2)
+  demandScore           Decimal   @default(0) @map("demand_score") @db.Decimal(5, 2)
+  competitionScore      Decimal   @default(0) @map("competition_score") @db.Decimal(5, 2)
+  profitMarginScore     Decimal   @default(0) @map("profit_margin_score") @db.Decimal(5, 2)
+  contentViabilityScore Decimal   @default(0) @map("content_viability_score") @db.Decimal(5, 2)
+  riskScore             Decimal   @default(0) @map("risk_score") @db.Decimal(5, 2)
+  scoreUpdatedAt        DateTime? @map("score_updated_at")
+
+  status          String   @default("active") // active | archived | discontinued
+  visibility      String   @default("public") // public | draft | private
+  tags            Json     @default("[]")
+  primaryImageUrl String?  @map("primary_image_url")
+  imageUrls       String[] @default([]) @map("image_urls")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  category      Category         @relation(fields: [categoryId], references: [id])
+  variants      ProductVariant[]
+  contentAssets ContentAsset[]
+
+  @@unique([tenantId, sku])
+  @@index([tenantId])
+  @@index([categoryId])
+  @@index([productScore(sort: Desc)])
+  @@index([status])
+  @@map("products")
+}
+
+model ProductVariant {
+  id            String   @id @default(uuid()) @db.Uuid
+  productId     String   @map("product_id") @db.Uuid
+  variantSku    String   @map("variant_sku")
+  size          String?
+  color         String?
+  costPrice     Decimal? @map("cost_price") @db.Decimal(12, 2)
+  retailPrice   Decimal? @map("retail_price") @db.Decimal(12, 2)
+  stockQuantity Int      @default(0) @map("stock_quantity")
+  reorderPoint  Int      @default(10) @map("reorder_point")
+  images        String[] @default([])
+  barcode       String?
+  weightKg      Decimal? @map("weight_kg") @db.Decimal(6, 2)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  product           Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
+  stockTransactions StockTransaction[]
+  orderItems        OrderItem[]
+
+  @@unique([productId, variantSku])
+  @@index([productId])
+  @@index([stockQuantity])
+  @@map("product_variants")
+}
+
+model StockTransaction {
+  id             String   @id @default(uuid()) @db.Uuid
+  variantId      String   @map("variant_id") @db.Uuid
+  quantityChange Int      @map("quantity_change")
+  reason         String // new_stock | sold | return | adjustment | damage
+  referenceId    String?  @map("reference_id") @db.Uuid
+  notes          String?
+  createdBy      String?  @map("created_by") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  variant ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@index([variantId])
+  @@index([createdAt(sort: Desc)])
+  @@map("stock_transactions")
+}
+
+// ------------------------------------------------------------------
+// Customers & Conversations
+// ------------------------------------------------------------------
+
+model Customer {
+  id                  String    @id @default(uuid()) @db.Uuid
+  tenantId            String    @map("tenant_id") @db.Uuid
+  phone               String
+  email               String?
+  firstName           String?   @map("first_name")
+  lastName            String?   @map("last_name")
+  streetAddress       String?   @map("street_address")
+  ward                String?
+  district            String?
+  city                String?
+  postalCode          String?   @map("postal_code")
+  country             String    @default("Vietnam")
+  preferredSize       String?   @map("preferred_size")
+  preferredColors     String[]  @default([]) @map("preferred_colors")
+  notes               String?
+  lifetimeValue       Decimal   @default(0) @map("lifetime_value") @db.Decimal(14, 2)
+  totalOrders         Int       @default(0) @map("total_orders")
+  repeatPurchaseCount Int       @default(0) @map("repeat_purchase_count")
+  segment             String? // VIP | Regular | New | At-risk | Churned
+  isActive            Boolean   @default(true) @map("is_active")
+  lastPurchaseAt      DateTime? @map("last_purchase_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  orders        Order[]
+  conversations CustomerConversation[]
+
+  @@unique([tenantId, phone])
+  @@index([tenantId])
+  @@index([segment])
+  @@index([lifetimeValue(sort: Desc)])
+  @@map("customers")
+}
+
+model CustomerConversation {
+  id         String   @id @default(uuid()) @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  customerId String   @map("customer_id") @db.Uuid
+  channel    String // facebook | zalo | email | website | sms
+  subject    String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  customer Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  @@index([customerId])
+  @@index([tenantId])
+  @@map("customer_conversations")
+}
+
+model Message {
+  id             String    @id @default(uuid()) @db.Uuid
+  conversationId String    @map("conversation_id") @db.Uuid
+  senderType     String    @map("sender_type") // customer | ai | human
+  senderId       String?   @map("sender_id") @db.Uuid
+  messageText    String    @map("message_text")
+  messageType    String    @default("text") @map("message_type")
+  aiModelUsed    String?   @map("ai_model_used")
+  aiConfidence   Decimal?  @map("ai_confidence_score") @db.Decimal(4, 3)
+  aiResponse     Boolean   @default(false) @map("ai_response")
+  humanApproved  Boolean?  @map("human_approved")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  readAt         DateTime? @map("read_at")
+
+  conversation CustomerConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+  @@map("messages")
+}
+
+// ------------------------------------------------------------------
+// Orders / Payments / Returns
+// ------------------------------------------------------------------
+
+model Order {
+  id             String    @id @default(uuid()) @db.Uuid
+  tenantId       String    @map("tenant_id") @db.Uuid
+  orderNumber    String    @unique @map("order_number")
+  customerId     String    @map("customer_id") @db.Uuid
+  subtotal       Decimal   @db.Decimal(14, 2)
+  discountAmount Decimal   @default(0) @map("discount_amount") @db.Decimal(12, 2)
+  shippingCost   Decimal   @default(0) @map("shipping_cost") @db.Decimal(12, 2)
+  totalAmount    Decimal   @map("total_amount") @db.Decimal(14, 2)
+
+  shippingAddress       String  @map("shipping_address")
+  shippingMethod        String? @map("shipping_method")
+  trackingNumber        String? @map("tracking_number")
+  estimatedDeliveryDate DateTime? @map("estimated_delivery_date") @db.Date
+
+  status        String @default("pending") // pending|confirmed|packed|shipped|delivered|completed|returned|cancelled
+  paymentStatus String @default("unpaid") @map("payment_status") // unpaid|paid|partially_paid|refunded
+
+  customerNotes String?   @map("customer_notes")
+  internalNotes String?   @map("internal_notes")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  confirmedAt   DateTime? @map("confirmed_at")
+  shippedAt     DateTime? @map("shipped_at")
+  deliveredAt   DateTime? @map("delivered_at")
+  createdBy     String?   @map("created_by") @db.Uuid
+
+  customer Customer    @relation(fields: [customerId], references: [id])
+  items    OrderItem[]
+  payments Payment[]
+  returns  Return[]
+
+  @@index([tenantId])
+  @@index([customerId])
+  @@index([status])
+  @@index([createdAt(sort: Desc)])
+  @@map("orders")
+}
+
+model OrderItem {
+  id          String   @id @default(uuid()) @db.Uuid
+  orderId     String   @map("order_id") @db.Uuid
+  variantId   String   @map("variant_id") @db.Uuid
+  productName String?  @map("product_name")
+  variantName String?  @map("variant_name")
+  unitPrice   Decimal  @map("unit_price") @db.Decimal(12, 2)
+  quantity    Int
+  subtotal    Decimal  @db.Decimal(14, 2)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  order   Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  variant ProductVariant @relation(fields: [variantId], references: [id])
+
+  @@index([orderId])
+  @@index([variantId])
+  @@map("order_items")
+}
+
+model Payment {
+  id            String    @id @default(uuid()) @db.Uuid
+  orderId       String    @map("order_id") @db.Uuid
+  amount        Decimal   @db.Decimal(14, 2)
+  method        String // bank_transfer | cash_on_delivery | card
+  gateway       String?
+  transactionId String?   @unique @map("transaction_id")
+  status        String    @default("pending") // pending|completed|failed|refunded
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  completedAt   DateTime? @map("completed_at")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@map("payments")
+}
+
+model Return {
+  id             String    @id @default(uuid()) @db.Uuid
+  orderId        String    @map("order_id") @db.Uuid
+  reason         String
+  description    String?
+  status         String    @default("requested") // requested|approved|rejected|received|refunded
+  trackingNumber String?   @map("tracking_number")
+  refundAmount   Decimal?  @map("refund_amount") @db.Decimal(14, 2)
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  refundedAt     DateTime? @map("refunded_at")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@map("returns")
+}
+
+// ------------------------------------------------------------------
+// Content & Marketing
+// ------------------------------------------------------------------
+
+model ContentAsset {
+  id            String    @id @default(uuid()) @db.Uuid
+  tenantId      String    @map("tenant_id") @db.Uuid
+  productId     String?   @map("product_id") @db.Uuid
+  contentType   String    @map("content_type") // product_description|caption|video_script|email|social_post
+  platform      String?
+  title         String?
+  content       String
+  aiGenerated   Boolean   @default(true) @map("ai_generated")
+  aiModelUsed   String?   @map("ai_model_used")
+  variantName   String?   @map("variant_name")
+  status        String    @default("draft") // draft|pending_review|approved|published|archived
+  approvalNotes String?   @map("approval_notes")
+  reviewedBy    String?   @map("reviewed_by") @db.Uuid
+  reviewedAt    DateTime? @map("reviewed_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  publishedAt   DateTime? @map("published_at")
+
+  product  Product?          @relation(fields: [productId], references: [id], onDelete: SetNull)
+  calendar ContentCalendar[]
+
+  @@index([tenantId])
+  @@index([productId])
+  @@index([status])
+  @@map("content_assets")
+}
+
+model ContentCalendar {
+  id             String    @id @default(uuid()) @db.Uuid
+  tenantId       String    @map("tenant_id") @db.Uuid
+  contentAssetId String    @map("content_asset_id") @db.Uuid
+  scheduledDate  DateTime  @map("scheduled_date") @db.Date
+  scheduledTime  String?   @map("scheduled_time")
+  publishedDate  DateTime? @map("published_date")
+  publishedUrl   String?   @map("published_url")
+  status         String    @default("scheduled") // scheduled|published|failed|cancelled
+  reach          Int       @default(0)
+  engagement     Int       @default(0)
+  clicks         Int       @default(0)
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  contentAsset ContentAsset @relation(fields: [contentAssetId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([scheduledDate])
+  @@map("content_calendar")
+}
+
+model FaqItem {
+  id                String                       @id @default(uuid()) @db.Uuid
+  tenantId          String                       @map("tenant_id") @db.Uuid
+  category          String
+  question          String
+  answer            String
+  questionEmbedding Unsupported("vector(1536)")? @map("question_embedding")
+  priority          Int                          @default(0)
+  createdAt         DateTime                     @default(now()) @map("created_at")
+  updatedAt         DateTime                     @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([category])
+  @@map("faq_items")
+}
+
+// ------------------------------------------------------------------
+// AI / Automation
+// ------------------------------------------------------------------
+
+model AiAgentTask {
+  id              String    @id @default(uuid()) @db.Uuid
+  tenantId        String    @map("tenant_id") @db.Uuid
+  agentName       String    @map("agent_name")
+  taskType        String    @map("task_type")
+  inputData       Json?     @map("input_data")
+  outputData      Json?     @map("output_data")
+  modelUsed       String?   @map("model_used")
+  tokensUsed      Int?      @map("tokens_used")
+  estimatedCost   Decimal?  @map("estimated_cost") @db.Decimal(12, 6)
+  status          String    @default("completed") // pending|processing|completed|failed|awaiting_approval|approved|rejected
+  errorMessage    String?   @map("error_message")
+  executionTimeMs Int?      @map("execution_time_ms")
+  triggeredBy     String?   @map("triggered_by") // manual|schedule|webhook|system
+  approvedBy      String?   @map("approved_by") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at")
+  completedAt     DateTime? @map("completed_at")
+
+  @@index([tenantId])
+  @@index([agentName])
+  @@index([status])
+  @@index([createdAt(sort: Desc)])
+  @@map("ai_agent_tasks")
+}
+
+model PromptTemplate {
+  id           String   @id @default(uuid()) @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  name         String
+  promptType   String   @map("prompt_type")
+  version      Int      @default(1)
+  templateText String   @map("template_text")
+  model        String
+  temperature  Decimal  @default(0.7) @db.Decimal(3, 2)
+  maxTokens    Int      @default(1000) @map("max_tokens")
+  status       String   @default("active") // active|archived|testing
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@unique([tenantId, name, version])
+  @@index([tenantId])
+  @@map("prompt_templates")
+}
+
+model WorkflowExecution {
+  id              String    @id @default(uuid()) @db.Uuid
+  tenantId        String    @map("tenant_id") @db.Uuid
+  workflowName    String    @map("workflow_name")
+  scheduleType    String    @default("manual") @map("schedule_type") // manual|scheduled|event
+  inputData       Json?     @map("input_data")
+  outputData      Json?     @map("output_data")
+  status          String    @default("running") // running|completed|failed
+  errorMessage    String?   @map("error_message")
+  executionTimeMs Int?      @map("execution_time_ms")
+  triggeredBy     String?   @map("triggered_by") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at")
+  completedAt     DateTime? @map("completed_at")
+
+  @@index([tenantId])
+  @@index([status])
+  @@map("workflow_executions")
+}
+
+// ------------------------------------------------------------------
+// Analytics / Finance
+// ------------------------------------------------------------------
+
+model DailyKpiSnapshot {
+  id                  String   @id @default(uuid()) @db.Uuid
+  tenantId            String   @map("tenant_id") @db.Uuid
+  snapshotDate        DateTime @map("snapshot_date") @db.Date
+  totalRevenue        Decimal  @default(0) @map("total_revenue") @db.Decimal(14, 2)
+  totalCost           Decimal  @default(0) @map("total_cost") @db.Decimal(14, 2)
+  totalProfit         Decimal  @default(0) @map("total_profit") @db.Decimal(14, 2)
+  profitMarginPercent Decimal  @default(0) @map("profit_margin_percent") @db.Decimal(6, 2)
+  newOrders           Int      @default(0) @map("new_orders")
+  completedOrders     Int      @default(0) @map("completed_orders")
+  cancelledOrders     Int      @default(0) @map("cancelled_orders")
+  returnedOrders      Int      @default(0) @map("returned_orders")
+  newCustomers        Int      @default(0) @map("new_customers")
+  repeatCustomers     Int      @default(0) @map("repeat_customers")
+  totalStockValue     Decimal  @default(0) @map("total_stock_value") @db.Decimal(14, 2)
+  lowStockItems       Int      @default(0) @map("low_stock_items")
+  aiTokenUsage        Int      @default(0) @map("ai_token_usage")
+  aiCost              Decimal  @default(0) @map("ai_cost") @db.Decimal(12, 6)
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  @@unique([tenantId, snapshotDate])
+  @@index([tenantId])
+  @@map("daily_kpi_snapshots")
+}
+
+model FinancialTransaction {
+  id              String   @id @default(uuid()) @db.Uuid
+  tenantId        String   @map("tenant_id") @db.Uuid
+  transactionType String   @map("transaction_type") // revenue|cost|expense|refund
+  category        String?
+  amount          Decimal  @db.Decimal(14, 2)
+  currency        String   @default("VND")
+  referenceId     String?  @map("reference_id") @db.Uuid
+  description     String?
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@index([transactionType])
+  @@map("financial_transactions")
+}
+
+// ------------------------------------------------------------------
+// System
+// ------------------------------------------------------------------
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  tenantId   String?  @map("tenant_id") @db.Uuid
+  userId     String?  @map("user_id") @db.Uuid
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String?  @map("entity_id")
+  oldValues  Json?    @map("old_values")
+  newValues  Json?    @map("new_values")
+  ipAddress  String?  @map("ip_address")
+  userAgent  String?  @map("user_agent")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([createdAt(sort: Desc)])
+  @@map("audit_logs")
+}

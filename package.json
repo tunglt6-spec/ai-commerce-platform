@@ -1,0 +1,32 @@
+{
+  "name": "ai-commerce-platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI Commerce Platform — AI Teammate for multi-category e-commerce (MVP)",
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev:backend": "npm --workspace backend run start:dev",
+    "dev:frontend": "npm --workspace frontend run dev",
+    "build": "npm --workspace backend run build && npm --workspace frontend run build",
+    "build:backend": "npm --workspace backend run build",
+    "build:frontend": "npm --workspace frontend run build",
+    "test:backend": "npm --workspace backend run test",
+    "test:e2e": "npm --workspace backend run test:e2e",
+    "lint": "npm --workspace backend run lint",
+    "db:generate": "npm --workspace backend run db:generate",
+    "db:migrate": "npm --workspace backend run db:migrate",
+    "db:seed": "npm --workspace backend run db:seed",
+    "compose:up": "docker compose up -d --build",
+    "compose:down": "docker compose down"
+  },
+  "overrides": {
+    "qs": "^6.15.2",
+    "postcss": "^8.5.16"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
