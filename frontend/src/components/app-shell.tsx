@@ -11,8 +11,10 @@ import {
   Menu,
   MessagesSquare,
   Package,
+  Plug,
   ShoppingCart,
   Users,
+  Workflow,
   X,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -27,6 +29,8 @@ const NAV = [
   { href: '/customers', label: 'Khách hàng', icon: Users },
   { href: '/marketing', label: 'Marketing', icon: Megaphone },
   { href: '/sales', label: 'Sales & FAQ', icon: MessagesSquare },
+  { href: '/workflows', label: 'Tự động hoá', icon: Workflow },
+  { href: '/integrations', label: 'Tích hợp', icon: Plug },
   { href: '/ai', label: 'AI Teammate', icon: Bot },
 ];
 

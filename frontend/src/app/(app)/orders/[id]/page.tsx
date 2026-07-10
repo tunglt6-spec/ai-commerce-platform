@@ -36,6 +36,8 @@ export default function OrderDetailPage() {
 
   const canConfirm = o.status === 'pending';
   const canShip = ['confirmed', 'packed'].includes(o.status);
+  const canDeliver = o.status === 'shipped';
+  const canComplete = o.status === 'delivered';
   const canReturn = ['shipped', 'delivered', 'completed'].includes(o.status);
 
   return (
@@ -64,6 +66,16 @@ export default function OrderDetailPage() {
               onClick={() => act(() => api.post(`/orders/${id}/shipments`, { shipping_method: 'GHN' }), 'Đã tạo vận đơn.')}
             >
               Tạo vận đơn
+            </Button>
+          )}
+          {canDeliver && (
+            <Button loading={busy} onClick={() => act(() => api.patch(`/orders/${id}/deliver`), 'Đã giao hàng.')}>
+              Đã giao
+            </Button>
+          )}
+          {canComplete && (
+            <Button loading={busy} onClick={() => act(() => api.patch(`/orders/${id}/complete`), 'Đã hoàn tất đơn.')}>
+              Hoàn tất
             </Button>
           )}
           {canReturn && (

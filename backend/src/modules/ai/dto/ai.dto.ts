@@ -53,3 +53,22 @@ export class ApproveTaskDto {
   @IsBoolean()
   approved!: boolean;
 }
+
+export class GenerateVideoPlanDto {
+  @IsUUID()
+  product_id!: string;
+
+  @IsOptional()
+  @IsString()
+  video_type = 'unboxing';
+
+  @IsOptional()
+  @IsInt()
+  @Min(10)
+  @Max(120)
+  duration_seconds = 30;
+
+  @IsOptional()
+  @IsBoolean()
+  save = false;
+}

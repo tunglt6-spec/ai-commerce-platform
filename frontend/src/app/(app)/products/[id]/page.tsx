@@ -4,7 +4,7 @@ import { Badge, Button, Card, CardBody, ErrorState, LoadingState } from '@/compo
 import { api, ApiError } from '@/lib/api';
 import { useApi } from '@/lib/use-api';
 import { formatVND } from '@/lib/utils';
-import { ArrowLeft, Bot, Sparkles } from 'lucide-react';
+import { ArrowLeft, Bot, Sparkles, Video } from 'lucide-react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useState } from 'react';
@@ -16,6 +16,8 @@ export default function ProductDetailPage() {
   const [scoring, setScoring] = useState(false);
   const [content, setContent] = useState<any>(null);
   const [genLoading, setGenLoading] = useState(false);
+  const [videoPlan, setVideoPlan] = useState<any>(null);
+  const [videoLoading, setVideoLoading] = useState(false);
   const [actionMsg, setActionMsg] = useState<string | null>(null);
 
   if (loading) return <LoadingState />;
@@ -49,6 +51,20 @@ export default function ProductDetailPage() {
     }
   };
 
+  const generateVideo = async () => {
+    setVideoLoading(true);
+    setVideoPlan(null);
+    try {
+      const res = await api.post('/ai/video/generate', { product_id: id, video_type: 'unboxing', save: true });
+      setVideoPlan(res.data.plan);
+      setActionMsg('Đã tạo kế hoạch video (lưu vào Marketing dạng nháp).');
+    } catch (e) {
+      setVideoPlan({ error: e instanceof ApiError ? e.message : 'Lỗi tạo video' });
+    } finally {
+      setVideoLoading(false);
+    }
+  };
+
   const scores = [
     { label: 'Nhu cầu', value: p.demandScore, max: 25 },
     { label: 'Cạnh tranh', value: p.competitionScore, max: 20 },
@@ -76,6 +92,9 @@ export default function ProductDetailPage() {
           </Button>
           <Button onClick={generate} loading={genLoading}>
             <Sparkles className="h-4 w-4" /> Tạo mô tả AI
+          </Button>
+          <Button variant="secondary" onClick={generateVideo} loading={videoLoading}>
+            <Video className="h-4 w-4" /> Kế hoạch video
           </Button>
         </div>
       </div>
@@ -184,6 +203,42 @@ export default function ProductDetailPage() {
               </div>
             ) : (
               <p className="text-sm text-gray-500">{content.note ?? 'Không có kết quả.'}</p>
+            )}
+          </CardBody>
+        </Card>
+      )}
+
+      {videoPlan && (
+        <Card>
+          <CardBody>
+            <h2 className="mb-3 text-base font-semibold text-gray-800">
+              Kế hoạch video {videoPlan.is_template ? '(mẫu)' : '(AI)'}
+            </h2>
+            {videoPlan.error ? (
+              <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{videoPlan.error}</div>
+            ) : videoPlan.note && videoPlan.scenes?.length === 0 ? (
+              <div className="whitespace-pre-line rounded-lg border border-gray-100 bg-gray-50/60 p-3 text-sm text-gray-700">
+                {videoPlan.note}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {videoPlan.note && <p className="text-xs text-amber-600">{videoPlan.note}</p>}
+                <div className="space-y-2">
+                  {videoPlan.scenes?.map((s: any) => (
+                    <div key={s.scene} className="rounded-lg border border-gray-100 p-3 text-sm">
+                      <div className="flex justify-between text-xs text-gray-400">
+                        <span>Cảnh {s.scene}</span>
+                        <span>{s.duration_seconds}s</span>
+                      </div>
+                      <p className="font-medium text-gray-800">{s.action}</p>
+                      <p className="text-gray-600">{s.voiceover}</p>
+                    </div>
+                  ))}
+                </div>
+                {videoPlan.shot_list?.length > 0 && (
+                  <p className="text-xs text-gray-500">Shot list: {videoPlan.shot_list.join(' · ')}</p>
+                )}
+              </div>
             )}
           </CardBody>
         </Card>

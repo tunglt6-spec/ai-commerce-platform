@@ -27,6 +27,9 @@ import { ContentModule } from './modules/content/content.module';
 import { FaqModule } from './modules/faq/faq.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { AnalyzeModule } from './modules/analyze/analyze.module';
+import { FulfillmentModule } from './modules/fulfillment/fulfillment.module';
+import { WorkflowModule } from './modules/workflow/workflow.module';
+import { IntegrationsModule } from './modules/integrations/integrations.module';
 
 @Module({
   imports: [
@@ -60,6 +63,9 @@ import { AnalyzeModule } from './modules/analyze/analyze.module';
     FaqModule,
     NotificationsModule,
     AnalyzeModule,
+    FulfillmentModule,
+    WorkflowModule,
+    IntegrationsModule,
   ],
   providers: [
     Reflector,

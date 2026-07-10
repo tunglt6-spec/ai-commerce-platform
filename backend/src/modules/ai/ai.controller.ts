@@ -8,10 +8,12 @@ import { PaginationDto } from '../../common/dto/pagination.dto';
 import { AiService } from './ai.service';
 import { ScoringService } from './agents/scoring.service';
 import { ContentAgentService } from './agents/content.service';
+import { VideoAgentService } from './agents/video.service';
 import {
   ApproveTaskDto,
   GenerateCaptionDto,
   GenerateDescriptionDto,
+  GenerateVideoPlanDto,
   GenerateVideoScriptDto,
 } from './dto/ai.dto';
 import { NotFoundException } from '@nestjs/common';
@@ -23,6 +25,7 @@ export class AiController {
     private readonly ai: AiService,
     private readonly scoring: ScoringService,
     private readonly content: ContentAgentService,
+    private readonly video: VideoAgentService,
   ) {}
 
   private async loadProduct(tenantId: string, productId: string) {
@@ -159,6 +162,50 @@ export class AiController {
       errorMessage: result.provider_configured ? undefined : 'AI_GATEWAY_NOT_CONFIGURED',
     });
     return { success: true, data: result };
+  }
+
+  @Post('video/generate')
+  @Roles(ROLES.OPERATOR)
+  async generateVideoPlan(@CurrentUser() user: AuthenticatedUser, @Body() dto: GenerateVideoPlanDto) {
+    const start = Date.now();
+    const product = await this.loadProduct(user.tenantId, dto.product_id);
+    const plan = await this.video.generate(
+      { name: product.name, category: product.category?.name },
+      dto.video_type,
+      dto.duration_seconds,
+    );
+
+    let savedAssetId: string | null = null;
+    if (dto.save) {
+      const asset = await this.prisma.contentAsset.create({
+        data: {
+          tenantId: user.tenantId,
+          productId: product.id,
+          contentType: 'video_script',
+          platform: 'tiktok',
+          title: plan.title,
+          content: JSON.stringify(plan),
+          aiGenerated: plan.from_provider,
+          aiModelUsed: plan.from_provider ? 'ai-gateway' : 'template',
+          status: 'draft',
+        },
+        select: { id: true },
+      });
+      savedAssetId = asset.id;
+    }
+
+    await this.ai.logTask({
+      tenantId: user.tenantId,
+      agentName: 'video_ai',
+      taskType: 'generate_video_plan',
+      inputData: { product_id: dto.product_id, video_type: dto.video_type, save: dto.save },
+      outputData: { from_provider: plan.from_provider, is_template: plan.is_template, saved_asset_id: savedAssetId },
+      modelUsed: plan.from_provider ? 'ai-gateway' : 'template',
+      executionTimeMs: Date.now() - start,
+      status: 'completed',
+    });
+
+    return { success: true, data: { plan, saved_asset_id: savedAssetId } };
   }
 
   @Get('tasks')
