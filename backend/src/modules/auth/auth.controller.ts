@@ -1,6 +1,6 @@
 import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { LoginDto, RefreshDto, RegisterDto } from './dto/auth.dto';
+import { ChangePasswordDto, LoginDto, RefreshDto, RegisterDto } from './dto/auth.dto';
 import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
@@ -36,6 +36,16 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async logout(@CurrentUser('userId') userId: string) {
     const data = await this.authService.logout(userId);
+    return { success: true, ...data };
+  }
+
+  @Post('change-password')
+  @HttpCode(HttpStatus.OK)
+  async changePassword(
+    @CurrentUser('userId') userId: string,
+    @Body() dto: ChangePasswordDto,
+  ) {
+    const data = await this.authService.changePassword(userId, dto.current_password, dto.new_password);
     return { success: true, ...data };
   }
 }

@@ -156,4 +156,26 @@ describe('AI Commerce Platform (e2e)', () => {
     expect(res.body.data.provider_configured).toBe(false);
     expect(res.body.data.variations.length).toBe(0);
   });
+
+  it('change-password: new works, old rejected, wrong current rejected', async () => {
+    const email = `pw_${rnd}@x.com`;
+    await request(http).post('/api/v1/auth/register').send({ email, username: `pw_${rnd}`, password: 'OldPass1!' }).expect(201);
+    const login = await request(http).post('/api/v1/auth/login').send({ email, password: 'OldPass1!' }).expect(200);
+    const token = login.body.data.access_token;
+
+    await request(http)
+      .post('/api/v1/auth/change-password')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ current_password: 'OldPass1!', new_password: 'NewPass1!' })
+      .expect(200);
+
+    await request(http).post('/api/v1/auth/login').send({ email, password: 'OldPass1!' }).expect(401);
+    const relogin = await request(http).post('/api/v1/auth/login').send({ email, password: 'NewPass1!' }).expect(200);
+
+    await request(http)
+      .post('/api/v1/auth/change-password')
+      .set('Authorization', `Bearer ${relogin.body.data.access_token}`)
+      .send({ current_password: 'WRONGCURRENT', new_password: 'Another1!' })
+      .expect(401);
+  });
 });

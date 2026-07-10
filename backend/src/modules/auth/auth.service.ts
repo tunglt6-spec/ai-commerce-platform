@@ -143,6 +143,24 @@ export class AuthService {
     return { message: 'Logged out successfully' };
   }
 
+  async changePassword(userId: string, currentPassword: string, newPassword: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException('User not found');
+
+    const valid = await argon2.verify(user.passwordHash, currentPassword).catch(() => false);
+    if (!valid) throw new UnauthorizedException('Current password is incorrect');
+
+    const passwordHash = await argon2.hash(newPassword, { type: argon2.argon2id });
+    await this.prisma.user.update({ where: { id: userId }, data: { passwordHash } });
+
+    // Revoke all refresh tokens so every session must re-authenticate with the new password.
+    await this.prisma.refreshToken.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    return { message: 'Password changed successfully. Please sign in again.' };
+  }
+
   // ---- helpers ----
 
   private async resolveMembership(userId: string, tenantId?: string) {

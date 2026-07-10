@@ -91,10 +91,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="hidden text-sm text-gray-500 lg:block">Xin chào, quản trị đội ngũ AI của bạn 👋</div>
           <div className="flex items-center gap-3">
             <NotificationsBell />
-            <div className="text-right">
+            <Link href="/settings" className="text-right hover:opacity-80" title="Cài đặt">
               <p className="text-sm font-medium text-gray-800">{user?.email}</p>
               <p className="text-xs capitalize text-gray-400">{user?.role}</p>
-            </div>
+            </Link>
             <button
               onClick={logout}
               className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100"

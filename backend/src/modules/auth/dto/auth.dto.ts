@@ -67,3 +67,16 @@ export class RefreshDto {
   @IsNotEmpty()
   refresh_token!: string;
 }
+
+export class ChangePasswordDto {
+  @IsString()
+  @IsNotEmpty()
+  current_password!: string;
+
+  @IsString()
+  @Matches(PASSWORD_RULE, {
+    message:
+      'new password must be at least 8 chars with 1 uppercase, 1 number and 1 special character',
+  })
+  new_password!: string;
+}
