@@ -3,6 +3,7 @@
 import { Badge, Button, Card, CardBody, EmptyState, ErrorState, Input, Label, LoadingState } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import { useApi } from '@/lib/use-api';
+import { usePermissions } from '@/lib/roles';
 import { formatDate } from '@/lib/utils';
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
@@ -10,6 +11,7 @@ import { useState } from 'react';
 export default function MarketingPage() {
   const assets = useApi<{ data: any[] }>('/content?limit=50');
   const calendar = useApi<{ data: any[] }>('/content-calendar');
+  const { canOperate, canManage } = usePermissions();
   const [showCreate, setShowCreate] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -36,9 +38,11 @@ export default function MarketingPage() {
           <h1 className="text-2xl font-semibold text-gray-900">Marketing</h1>
           <p className="text-sm text-gray-500">Nội dung & lịch đăng đa kênh</p>
         </div>
-        <Button onClick={() => setShowCreate(true)}>
-          <Plus className="h-4 w-4" /> Tạo nội dung
-        </Button>
+        {canOperate && (
+          <Button onClick={() => setShowCreate(true)}>
+            <Plus className="h-4 w-4" /> Tạo nội dung
+          </Button>
+        )}
       </div>
 
       {msg && <div className="rounded-lg bg-brand-50 px-3 py-2 text-sm text-brand-700">{msg}</div>}
@@ -63,17 +67,17 @@ export default function MarketingPage() {
                     </p>
                   </div>
                   <div className="flex gap-2">
-                    {a.status === 'draft' && (
+                    {a.status === 'draft' && canOperate && (
                       <Button size="sm" variant="secondary" loading={busyId === a.id} onClick={() => doAction(a.id, () => api.patch(`/content/${a.id}/submit`), 'Đã gửi duyệt.')}>
                         Gửi duyệt
                       </Button>
                     )}
-                    {a.status === 'pending_review' && (
+                    {a.status === 'pending_review' && canManage && (
                       <Button size="sm" loading={busyId === a.id} onClick={() => doAction(a.id, () => api.patch(`/content/${a.id}/approve`, { approved: true }), 'Đã duyệt.')}>
                         Duyệt
                       </Button>
                     )}
-                    {a.status === 'approved' && (
+                    {a.status === 'approved' && canManage && (
                       <Button
                         size="sm"
                         variant="secondary"

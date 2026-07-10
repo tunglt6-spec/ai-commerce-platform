@@ -12,11 +12,13 @@ import {
   MessagesSquare,
   Package,
   Plug,
+  ShieldCheck,
   ShoppingCart,
   Users,
   Workflow,
   X,
 } from 'lucide-react';
+import { roleAtLeast } from '@/lib/roles';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -32,6 +34,7 @@ const NAV = [
   { href: '/workflows', label: 'Tự động hoá', icon: Workflow },
   { href: '/integrations', label: 'Tích hợp', icon: Plug },
   { href: '/ai', label: 'AI Teammate', icon: Bot },
+  { href: '/users', label: 'Người dùng', icon: ShieldCheck, minRole: 'manager' as const },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -64,7 +67,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen">
       {/* Sidebar (desktop) */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-gray-100 bg-white lg:flex">
-        <SidebarContent pathname={pathname} />
+        <SidebarContent pathname={pathname} role={user?.role} />
       </aside>
 
       {/* Mobile drawer */}
@@ -77,7 +80,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <X className="h-5 w-5 text-gray-500" />
               </button>
             </div>
-            <SidebarContent pathname={pathname} onNavigate={() => setMobileOpen(false)} />
+            <SidebarContent pathname={pathname} role={user?.role} onNavigate={() => setMobileOpen(false)} />
           </aside>
         </div>
       )}
@@ -174,11 +177,14 @@ function NotificationsBell() {
 
 function SidebarContent({
   pathname,
+  role,
   onNavigate,
 }: {
   pathname: string;
+  role?: string;
   onNavigate?: () => void;
 }) {
+  const items = NAV.filter((item) => !('minRole' in item) || roleAtLeast(role, (item as any).minRole));
   return (
     <>
       <div className="flex h-16 items-center gap-2 px-6">
@@ -188,7 +194,7 @@ function SidebarContent({
         <span className="text-[15px] font-semibold text-gray-800">AI Commerce</span>
       </div>
       <nav className="flex-1 space-y-1 px-3 py-4">
-        {NAV.map((item) => {
+        {items.map((item) => {
           const active = pathname === item.href || pathname.startsWith(item.href + '/');
           const Icon = item.icon;
           return (

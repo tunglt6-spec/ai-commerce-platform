@@ -3,6 +3,7 @@
 import { Badge, Button, Card, CardBody, EmptyState, ErrorState, LoadingState } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import { useApi } from '@/lib/use-api';
+import { usePermissions } from '@/lib/roles';
 import { formatDate } from '@/lib/utils';
 import { Play, Workflow as WorkflowIcon } from 'lucide-react';
 import { useState } from 'react';
@@ -10,6 +11,7 @@ import { useState } from 'react';
 export default function WorkflowsPage() {
   const defs = useApi<{ data: any[] }>('/workflows');
   const execs = useApi<{ data: any[] }>('/workflow-executions?limit=20');
+  const { canManage } = usePermissions();
   const [running, setRunning] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -55,7 +57,7 @@ export default function WorkflowsPage() {
                   </div>
                 </div>
                 <p className="mb-4 flex-1 text-sm text-gray-500">{w.description}</p>
-                <Button size="sm" loading={running === w.name} onClick={() => run(w.name)}>
+                <Button size="sm" loading={running === w.name} disabled={!canManage} onClick={() => run(w.name)}>
                   <Play className="h-4 w-4" /> Chạy ngay
                 </Button>
               </CardBody>

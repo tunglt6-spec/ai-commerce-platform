@@ -3,6 +3,7 @@
 import { Badge, Button, Card, CardBody, EmptyState, ErrorState, LoadingState } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import { useApi } from '@/lib/use-api';
+import { usePermissions } from '@/lib/roles';
 import { formatVND } from '@/lib/utils';
 import { Heart } from 'lucide-react';
 import { useState } from 'react';
@@ -20,6 +21,7 @@ interface Customer {
 
 function RavingFanCard({ onSegmentsUpdated }: { onSegmentsUpdated: () => void }) {
   const winBack = useApi<{ data: { count: number; customers: any[] } }>('/ai/raving-fan/win-back?days=30');
+  const { canManage } = usePermissions();
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -44,7 +46,7 @@ function RavingFanCard({ onSegmentsUpdated }: { onSegmentsUpdated: () => void })
           <h2 className="flex items-center gap-2 text-base font-semibold text-gray-800">
             <Heart className="h-4 w-4 text-brand-600" /> Raving Fan AI
           </h2>
-          <Button size="sm" variant="secondary" loading={busy} onClick={recompute}>
+          <Button size="sm" variant="secondary" loading={busy} disabled={!canManage} onClick={recompute}>
             Cập nhật phân khúc
           </Button>
         </div>

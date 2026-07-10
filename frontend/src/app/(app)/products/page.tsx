@@ -3,6 +3,7 @@
 import { Badge, Button, Card, CardBody, EmptyState, ErrorState, Input, Label, LoadingState } from '@/components/ui';
 import { api, ApiError, uploadFile } from '@/lib/api';
 import { useApi } from '@/lib/use-api';
+import { usePermissions } from '@/lib/roles';
 import { formatVND } from '@/lib/utils';
 import { Plus, Search } from 'lucide-react';
 import Link from 'next/link';
@@ -24,6 +25,7 @@ export default function ProductsPage() {
   const { data, loading, error, reload } = useApi<{ data: Product[] }>(
     `/products?limit=50${query ? `&search=${encodeURIComponent(query)}` : ''}`,
   );
+  const { canOperate } = usePermissions();
   const [showCreate, setShowCreate] = useState(false);
 
   return (
@@ -33,9 +35,11 @@ export default function ProductsPage() {
           <h1 className="text-2xl font-semibold text-gray-900">Sản phẩm</h1>
           <p className="text-sm text-gray-500">Quản lý danh mục sản phẩm và điểm AI</p>
         </div>
-        <Button onClick={() => setShowCreate(true)}>
-          <Plus className="h-4 w-4" /> Thêm sản phẩm
-        </Button>
+        {canOperate && (
+          <Button onClick={() => setShowCreate(true)}>
+            <Plus className="h-4 w-4" /> Thêm sản phẩm
+          </Button>
+        )}
       </div>
 
       <form

@@ -9,6 +9,7 @@ import { AiService } from './ai.service';
 import { ScoringService } from './agents/scoring.service';
 import { ContentAgentService } from './agents/content.service';
 import { VideoAgentService } from './agents/video.service';
+import { TrendHunterService } from './agents/trend-hunter.service';
 import {
   ApproveTaskDto,
   GenerateCaptionDto,
@@ -26,6 +27,7 @@ export class AiController {
     private readonly scoring: ScoringService,
     private readonly content: ContentAgentService,
     private readonly video: VideoAgentService,
+    private readonly trendHunter: TrendHunterService,
   ) {}
 
   private async loadProduct(tenantId: string, productId: string) {
@@ -206,6 +208,23 @@ export class AiController {
     });
 
     return { success: true, data: { plan, saved_asset_id: savedAssetId } };
+  }
+
+  @Post('trends/analyze')
+  @Roles(ROLES.MANAGER)
+  async analyzeTrends(@CurrentUser() user: AuthenticatedUser) {
+    const start = Date.now();
+    const data = await this.trendHunter.analyze(user.tenantId);
+    await this.ai.logTask({
+      tenantId: user.tenantId,
+      agentName: 'trend_hunter_ai',
+      taskType: 'analyze_trends',
+      outputData: { rising_products: data.rising_products.length, from_provider: data.from_provider },
+      modelUsed: data.from_provider ? 'ai-gateway' : 'deterministic-rules',
+      status: 'completed',
+      executionTimeMs: Date.now() - start,
+    });
+    return { success: true, data };
   }
 
   @Get('tasks')

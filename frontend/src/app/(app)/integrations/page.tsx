@@ -3,6 +3,7 @@
 import { Badge, Button, Card, CardBody, ErrorState, Input, Label, LoadingState } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import { useApi } from '@/lib/use-api';
+import { usePermissions } from '@/lib/roles';
 import { Plug } from 'lucide-react';
 import { useState } from 'react';
 
@@ -17,11 +18,13 @@ const STATUS_TONE: Record<string, string> = {
 
 export default function IntegrationsPage() {
   const { data, loading, error, reload } = useApi<{ data: any[] }>('/integrations');
+  const { canAdmin } = usePermissions();
   const [connecting, setConnecting] = useState<string | null>(null);
   const [modal, setModal] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
 
   const disconnect = async (provider: string) => {
+    if (!window.confirm(`Ngắt kết nối ${provider}? Thông tin xác thực sẽ bị xoá.`)) return;
     setConnecting(provider);
     setMsg(null);
     try {
@@ -79,6 +82,9 @@ export default function IntegrationsPage() {
                   <Badge tone={STATUS_TONE[it.status]}>{it.status.replace('_', ' ')}</Badge>
                 </div>
                 {it.last_error && <p className="mb-2 text-xs text-red-600">{it.last_error}</p>}
+                {!canAdmin ? (
+                  <p className="text-xs text-gray-400">Chỉ Admin mới cấu hình tích hợp.</p>
+                ) : (
                 <div className="flex gap-2">
                   {it.status === 'connected' || it.status === 'error' || it.status === 'disabled' ? (
                     <>
@@ -103,6 +109,7 @@ export default function IntegrationsPage() {
                     </Button>
                   )}
                 </div>
+                )}
               </CardBody>
             </Card>
           ))}

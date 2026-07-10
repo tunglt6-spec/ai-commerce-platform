@@ -1,9 +1,12 @@
 'use client';
 
-import { Badge, Card, CardBody, ErrorState, LoadingState } from '@/components/ui';
+import { Badge, Button, Card, CardBody, ErrorState, LoadingState } from '@/components/ui';
+import { api, ApiError } from '@/lib/api';
 import { useApi } from '@/lib/use-api';
+import { usePermissions } from '@/lib/roles';
 import { formatNumber, formatVND } from '@/lib/utils';
 import { Boxes, DollarSign, Package, ShoppingCart, TrendingUp, Users } from 'lucide-react';
+import { useState } from 'react';
 
 interface Summary {
   revenue: { today: number; this_week: number; this_month: number };
@@ -46,6 +49,23 @@ export default function DashboardPage() {
   const { data: cost } = useApi<{ data: { total_cost: number; total_tokens: number; task_count: number } }>(
     '/ai/cost/summary?days=7',
   );
+  const { data: intel } = useApi<{ data: { top_opportunities: any[] } }>('/dashboards/products/intelligence');
+  const { canManage } = usePermissions();
+  const [trend, setTrend] = useState<any>(null);
+  const [trendLoading, setTrendLoading] = useState(false);
+
+  const runTrend = async () => {
+    setTrendLoading(true);
+    setTrend(null);
+    try {
+      const res = await api.post('/ai/trends/analyze');
+      setTrend(res.data);
+    } catch (e) {
+      setTrend({ error: e instanceof ApiError ? e.message : 'Lỗi phân tích' });
+    } finally {
+      setTrendLoading(false);
+    }
+  };
 
   if (loading) return <LoadingState />;
   if (error) return <ErrorState message={error} onRetry={reload} />;
@@ -103,6 +123,68 @@ export default function DashboardPage() {
           )}
         </CardBody>
       </Card>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Card>
+          <CardBody>
+            <h2 className="mb-4 text-base font-semibold text-gray-800">Top cơ hội (Product AI)</h2>
+            {(intel?.data?.top_opportunities?.length ?? 0) === 0 ? (
+              <p className="py-6 text-center text-sm text-gray-400">Chưa có sản phẩm để chấm điểm</p>
+            ) : (
+              <div className="space-y-2">
+                {intel!.data.top_opportunities.slice(0, 5).map((p) => (
+                  <div key={p.id} className="flex items-center justify-between text-sm">
+                    <span className="truncate text-gray-700">{p.name}</span>
+                    <span className="flex items-center gap-2">
+                      <span className="font-semibold text-brand-600">{Number(p.productScore).toFixed(0)}</span>
+                      <span className="text-xs text-gray-400">{formatVND(p.retailPrice)}</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardBody>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="flex items-center gap-2 text-base font-semibold text-gray-800">
+                <TrendingUp className="h-4 w-4 text-brand-600" /> Trend Hunter AI
+              </h2>
+              <Button size="sm" variant="secondary" loading={trendLoading} disabled={!canManage} onClick={runTrend}>
+                Phân tích xu hướng
+              </Button>
+            </div>
+            {!trend ? (
+              <p className="text-sm text-gray-400">
+                {canManage ? 'Nhấn để phân tích xu hướng từ dữ liệu bán 30 ngày.' : 'Cần quyền Manager để chạy phân tích.'}
+              </p>
+            ) : trend.error ? (
+              <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{trend.error}</div>
+            ) : (
+              <div className="space-y-2">
+                {(trend.rising_products ?? []).slice(0, 5).map((p: any) => (
+                  <div key={p.product_id} className="flex items-center justify-between text-sm">
+                    <span className="truncate text-gray-700">{p.name}</span>
+                    <span className="text-xs text-gray-500">
+                      bán {p.units_sold_30d} · điểm xu hướng <span className="font-semibold text-brand-600">{p.trend_score}</span>
+                    </span>
+                  </div>
+                ))}
+                {trend.narrative && (
+                  <div className="mt-2 whitespace-pre-line rounded-lg border border-gray-100 bg-gray-50/60 p-3 text-xs text-gray-700">
+                    {trend.narrative}
+                  </div>
+                )}
+                {(trend.rising_products ?? []).length === 0 && (
+                  <p className="text-sm text-gray-400">Chưa đủ dữ liệu bán hàng để phân tích.</p>
+                )}
+              </div>
+            )}
+          </CardBody>
+        </Card>
+      </div>
     </div>
   );
 }

@@ -157,6 +157,22 @@ describe('AI Commerce Platform (e2e)', () => {
     expect(res.body.data.variations.length).toBe(0);
   });
 
+  it('trend hunter analyzes opportunities from real data', async () => {
+    const res = await request(http)
+      .post('/api/v1/ai/trends/analyze')
+      .set('Authorization', `Bearer ${t1Token}`)
+      .expect(201);
+    expect(res.body.data.window_days).toBe(30);
+    expect(Array.isArray(res.body.data.rising_products)).toBe(true);
+    expect(Array.isArray(res.body.data.rising_categories)).toBe(true);
+  });
+
+  it('lists tenant members (users/roles screen backend)', async () => {
+    const res = await request(http).get('/api/v1/users').set('Authorization', `Bearer ${t1Token}`).expect(200);
+    expect(res.body.data.length).toBeGreaterThanOrEqual(1);
+    expect(res.body.data[0].role).toBeDefined();
+  });
+
   it('change-password: new works, old rejected, wrong current rejected', async () => {
     const email = `pw_${rnd}@x.com`;
     await request(http).post('/api/v1/auth/register').send({ email, username: `pw_${rnd}`, password: 'OldPass1!' }).expect(201);
