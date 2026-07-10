@@ -75,6 +75,25 @@ export async function apiRequest<T = any>(path: string, opts: RequestOptions = {
   return json as T;
 }
 
+/** Upload a file via multipart/form-data with auth (used for media uploads). */
+export async function uploadFile(file: File): Promise<{ url: string; filename: string; mime: string; size: number }> {
+  const token = useAuth.getState().accessToken;
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch(`${BASE_URL}/uploads`, {
+    method: 'POST',
+    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: form,
+  });
+  const json = await res.json().catch(() => null);
+  if (!res.ok) {
+    throw new ApiError(res.status, json?.error?.code || 'ERROR', json?.error?.message || 'Upload thất bại');
+  }
+  // Static uploads are served from the backend origin (not under /api/v1).
+  const origin = BASE_URL.replace(/\/api\/v1\/?$/, '');
+  return { ...json.data, url: `${origin}${json.data.url}` };
+}
+
 // Typed helpers
 export const api = {
   get: <T = any>(path: string) => apiRequest<T>(path),

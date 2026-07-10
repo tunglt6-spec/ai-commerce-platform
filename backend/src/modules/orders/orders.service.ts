@@ -9,6 +9,7 @@ import { PrismaService } from '../../common/prisma/prisma.service';
 import { buildOrderBy, paginate } from '../../common/dto/pagination.dto';
 import { buildOrderNumber } from '../../common/utils/order-number';
 import { CreateOrderDto, CreateShipmentDto, OrderQueryDto } from './dto/order.dto';
+import { IntegrationsService } from '../integrations/integrations.service';
 
 const SORTABLE: Record<string, string> = {
   created_at: 'createdAt',
@@ -17,7 +18,10 @@ const SORTABLE: Record<string, string> = {
 
 @Injectable()
 export class OrdersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly integrations: IntegrationsService,
+  ) {}
 
   /**
    * Create an order. Stock is reserved (decremented) atomically at creation to
@@ -70,7 +74,7 @@ export class OrdersService {
       qtyByVariant.set(it.variant_id, (qtyByVariant.get(it.variant_id) ?? 0) + it.quantity);
     }
 
-    return this.createWithRetry(async (orderNumber) =>
+    const order = await this.createWithRetry(async (orderNumber) =>
       this.prisma.$transaction(async (tx) => {
         // Atomic stock reservation — updateMany with guard prevents oversell.
         for (const [variantId, qty] of qtyByVariant) {
@@ -131,6 +135,17 @@ export class OrdersService {
         return order;
       }),
     );
+
+    // Notify connected integrations (real outbound webhook, fire-and-forget).
+    void this.integrations
+      .dispatchEvent(tenantId, 'order.created', {
+        order_id: order.id,
+        order_number: order.orderNumber,
+        total_amount: Number(order.totalAmount),
+      })
+      .catch(() => undefined);
+
+    return order;
   }
 
   async findAll(tenantId: string, query: OrderQueryDto) {

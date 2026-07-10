@@ -5,6 +5,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import configuration from './config/configuration';
 import { validateEnv } from './config/env.validation';
 import { PrismaModule } from './common/prisma/prisma.module';
+import { CryptoModule } from './common/crypto/crypto.module';
 import { AuditModule } from './common/audit/audit.module';
 import { AuditInterceptor } from './common/audit/audit.interceptor';
 import { AuditService } from './common/audit/audit.service';
@@ -30,6 +31,8 @@ import { AnalyzeModule } from './modules/analyze/analyze.module';
 import { FulfillmentModule } from './modules/fulfillment/fulfillment.module';
 import { WorkflowModule } from './modules/workflow/workflow.module';
 import { IntegrationsModule } from './modules/integrations/integrations.module';
+import { RavingFanModule } from './modules/raving-fan/raving-fan.module';
+import { UploadsModule } from './modules/uploads/uploads.module';
 
 @Module({
   imports: [
@@ -48,6 +51,7 @@ import { IntegrationsModule } from './modules/integrations/integrations.module';
       },
     ]),
     PrismaModule,
+    CryptoModule,
     AuditModule,
     HealthModule,
     AuthModule,
@@ -66,6 +70,8 @@ import { IntegrationsModule } from './modules/integrations/integrations.module';
     FulfillmentModule,
     WorkflowModule,
     IntegrationsModule,
+    RavingFanModule,
+    UploadsModule,
   ],
   providers: [
     Reflector,

@@ -32,4 +32,11 @@ export class IntegrationsController {
     const data = await this.integrationsService.disconnect(tenantId, provider);
     return { success: true, data };
   }
+
+  @Post(':provider/test')
+  @Roles(ROLES.ADMIN)
+  async test(@CurrentUser('tenantId') tenantId: string, @Param('provider') provider: string) {
+    const data = await this.integrationsService.test(tenantId, provider);
+    return { success: true, data };
+  }
 }

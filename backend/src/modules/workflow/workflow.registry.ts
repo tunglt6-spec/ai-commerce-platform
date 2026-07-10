@@ -1,5 +1,6 @@
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { ScoringService } from '../ai/agents/scoring.service';
+import { computeSegment } from '../raving-fan/segment.util';
 
 export interface WorkflowContext {
   prisma: PrismaService;
@@ -98,6 +99,33 @@ export const WORKFLOWS: Record<string, WorkflowDefinition> = {
         create: { tenantId, snapshotDate: startOfDay, totalRevenue: revenue, newOrders, completedOrders: completed, cancelledOrders: cancelled, newCustomers },
       });
       return { snapshot_date: startOfDay.toISOString().slice(0, 10), revenue, new_orders: newOrders, snapshot_id: snapshot.id };
+    },
+  },
+
+  customer_segmentation: {
+    name: 'customer_segmentation',
+    title: 'Phân khúc khách hàng',
+    description: 'Tính lại phân khúc (VIP/Regular/New/At-risk/Churned) cho toàn bộ khách hàng.',
+    async run({ prisma, tenantId }) {
+      const now = new Date();
+      const customers = await prisma.customer.findMany({
+        where: { tenantId },
+        select: { id: true, totalOrders: true, lifetimeValue: true, lastPurchaseAt: true, segment: true },
+      });
+      const counts: Record<string, number> = {};
+      let updated = 0;
+      for (const c of customers) {
+        const seg = computeSegment(
+          { totalOrders: c.totalOrders, lifetimeValue: Number(c.lifetimeValue), lastPurchaseAt: c.lastPurchaseAt },
+          now,
+        );
+        counts[seg] = (counts[seg] ?? 0) + 1;
+        if (seg !== c.segment) {
+          await prisma.customer.update({ where: { id: c.id }, data: { segment: seg } });
+          updated++;
+        }
+      }
+      return { total: customers.length, updated, by_segment: counts };
     },
   },
 };

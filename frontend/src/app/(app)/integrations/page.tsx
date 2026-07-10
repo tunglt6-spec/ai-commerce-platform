@@ -34,6 +34,20 @@ export default function IntegrationsPage() {
     }
   };
 
+  const test = async (provider: string) => {
+    setConnecting(provider);
+    setMsg(null);
+    try {
+      const res = await api.post(`/integrations/${provider}/test`);
+      setMsg(`Test ${provider}: ${res.data.status}${res.data.last_error ? ' — ' + res.data.last_error : ''}`);
+      reload();
+    } catch (e) {
+      setMsg(e instanceof ApiError ? e.message : 'Test thất bại');
+    } finally {
+      setConnecting(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -64,15 +78,31 @@ export default function IntegrationsPage() {
                   </div>
                   <Badge tone={STATUS_TONE[it.status]}>{it.status.replace('_', ' ')}</Badge>
                 </div>
-                {it.status === 'connected' ? (
-                  <Button variant="secondary" size="sm" loading={connecting === it.provider} onClick={() => disconnect(it.provider)}>
-                    Ngắt kết nối
-                  </Button>
-                ) : (
-                  <Button size="sm" onClick={() => setModal(it.provider)}>
-                    Kết nối
-                  </Button>
-                )}
+                {it.last_error && <p className="mb-2 text-xs text-red-600">{it.last_error}</p>}
+                <div className="flex gap-2">
+                  {it.status === 'connected' || it.status === 'error' || it.status === 'disabled' ? (
+                    <>
+                      {it.verify_url && (
+                        <Button variant="secondary" size="sm" loading={connecting === it.provider} onClick={() => test(it.provider)}>
+                          Test
+                        </Button>
+                      )}
+                      {it.status !== 'disabled' ? (
+                        <Button variant="ghost" size="sm" loading={connecting === it.provider} onClick={() => disconnect(it.provider)}>
+                          Ngắt
+                        </Button>
+                      ) : (
+                        <Button size="sm" onClick={() => setModal(it.provider)}>
+                          Kết nối lại
+                        </Button>
+                      )}
+                    </>
+                  ) : (
+                    <Button size="sm" onClick={() => setModal(it.provider)}>
+                      Kết nối
+                    </Button>
+                  )}
+                </div>
               </CardBody>
             </Card>
           ))}
@@ -95,6 +125,8 @@ export default function IntegrationsPage() {
 
 function ConnectModal({ provider, onClose, onConnected }: { provider: string; onClose: () => void; onConnected: () => void }) {
   const [apiKey, setApiKey] = useState('');
+  const [verifyUrl, setVerifyUrl] = useState('');
+  const [webhookUrl, setWebhookUrl] = useState('');
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -103,7 +135,10 @@ function ConnectModal({ provider, onClose, onConnected }: { provider: string; on
     setErr(null);
     setSaving(true);
     try {
-      await api.post(`/integrations/${provider}/connect`, { api_key: apiKey });
+      const config: Record<string, string> = {};
+      if (verifyUrl) config.verify_url = verifyUrl;
+      if (webhookUrl) config.webhook_url = webhookUrl;
+      await api.post(`/integrations/${provider}/connect`, { api_key: apiKey, config });
       onConnected();
     } catch (e) {
       setErr(e instanceof ApiError ? e.message : 'Kết nối thất bại');
@@ -125,6 +160,14 @@ function ConnectModal({ provider, onClose, onConnected }: { provider: string; on
             <div>
               <Label htmlFor="key">API Key / Access Token</Label>
               <Input id="key" type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} required />
+            </div>
+            <div>
+              <Label htmlFor="vu">Verify URL (tuỳ chọn)</Label>
+              <Input id="vu" placeholder="https://api.provider.com/ping" value={verifyUrl} onChange={(e) => setVerifyUrl(e.target.value)} />
+            </div>
+            <div>
+              <Label htmlFor="wu">Webhook URL (tuỳ chọn)</Label>
+              <Input id="wu" placeholder="https://your-endpoint/webhook" value={webhookUrl} onChange={(e) => setWebhookUrl(e.target.value)} />
             </div>
             {err && <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
             <div className="flex justify-end gap-2">

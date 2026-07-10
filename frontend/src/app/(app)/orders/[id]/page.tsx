@@ -15,6 +15,7 @@ export default function OrderDetailPage() {
   const { data, loading, error, reload } = useApi<{ data: any }>(`/orders/${id}`);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [followUp, setFollowUp] = useState<string | null>(null);
 
   if (loading) return <LoadingState />;
   if (error) return <ErrorState message={error} onRetry={reload} />;
@@ -39,6 +40,21 @@ export default function OrderDetailPage() {
   const canDeliver = o.status === 'shipped';
   const canComplete = o.status === 'delivered';
   const canReturn = ['shipped', 'delivered', 'completed'].includes(o.status);
+  const canFollowUp = ['delivered', 'completed'].includes(o.status);
+
+  const genFollowUp = async () => {
+    setBusy(true);
+    setFollowUp(null);
+    setMsg(null);
+    try {
+      const res = await api.post(`/ai/raving-fan/follow-up/${id}`);
+      setFollowUp(res.data.message);
+    } catch (e) {
+      setMsg(e instanceof ApiError ? e.message : 'Không tạo được tin nhắn');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -78,6 +94,11 @@ export default function OrderDetailPage() {
               Hoàn tất
             </Button>
           )}
+          {canFollowUp && (
+            <Button variant="secondary" loading={busy} onClick={genFollowUp}>
+              Chăm sóc (Raving Fan)
+            </Button>
+          )}
           {canReturn && (
             <Button
               variant="secondary"
@@ -93,6 +114,12 @@ export default function OrderDetailPage() {
       </div>
 
       {msg && <div className="rounded-lg bg-brand-50 px-3 py-2 text-sm text-brand-700">{msg}</div>}
+      {followUp && (
+        <div className="rounded-lg border border-brand-100 bg-brand-50/60 px-3 py-3 text-sm text-gray-700">
+          <p className="mb-1 text-xs font-semibold uppercase text-brand-600">Tin nhắn chăm sóc gợi ý</p>
+          {followUp}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">

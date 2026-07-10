@@ -1,7 +1,7 @@
 'use client';
 
 import { Badge, Button, Card, CardBody, EmptyState, ErrorState, Input, Label, LoadingState } from '@/components/ui';
-import { api, ApiError } from '@/lib/api';
+import { api, ApiError, uploadFile } from '@/lib/api';
 import { useApi } from '@/lib/use-api';
 import { formatVND } from '@/lib/utils';
 import { Plus, Search } from 'lucide-react';
@@ -111,9 +111,25 @@ export default function ProductsPage() {
 
 function CreateProductModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const { data: cats } = useApi<{ data: { id: string; name: string }[] }>('/categories');
-  const [form, setForm] = useState({ sku: '', name: '', category_id: '', cost_price: '', retail_price: '' });
+  const [form, setForm] = useState({ sku: '', name: '', category_id: '', cost_price: '', retail_price: '', primary_image_url: '' });
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setErr(null);
+    try {
+      const res = await uploadFile(file);
+      setForm((f) => ({ ...f, primary_image_url: res.url }));
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : 'Upload ảnh thất bại');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -126,6 +142,7 @@ function CreateProductModal({ onClose, onCreated }: { onClose: () => void; onCre
         category_id: form.category_id,
         cost_price: Number(form.cost_price),
         retail_price: Number(form.retail_price),
+        ...(form.primary_image_url ? { primary_image_url: form.primary_image_url } : {}),
       });
       onCreated();
       onClose();
@@ -194,12 +211,27 @@ function CreateProductModal({ onClose, onCreated }: { onClose: () => void; onCre
                 />
               </div>
             </div>
+            <div>
+              <Label htmlFor="img">Ảnh đại diện</Label>
+              <input
+                id="img"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={onFile}
+                className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-brand-50 file:px-3 file:py-2 file:text-brand-700"
+              />
+              {uploading && <p className="mt-1 text-xs text-gray-400">Đang tải ảnh…</p>}
+              {form.primary_image_url && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={form.primary_image_url} alt="preview" className="mt-2 h-20 w-20 rounded-lg object-cover" />
+              )}
+            </div>
             {err && <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="secondary" type="button" onClick={onClose}>
                 Hủy
               </Button>
-              <Button type="submit" loading={saving}>
+              <Button type="submit" loading={saving || uploading}>
                 Tạo
               </Button>
             </div>

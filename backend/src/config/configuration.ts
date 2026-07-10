@@ -9,6 +9,7 @@ export interface AppConfig {
   };
   corsOrigins: string[];
   rateLimitPerMin: number;
+  integrationEncKey: string;
   ai: {
     baseUrl: string;
     apiKey: string;
@@ -32,6 +33,7 @@ export default (): AppConfig => ({
     .map((s) => s.trim())
     .filter(Boolean),
   rateLimitPerMin: parseInt(process.env.RATE_LIMIT_PER_MIN ?? '120', 10),
+  integrationEncKey: process.env.INTEGRATION_ENC_KEY ?? '',
   ai: {
     baseUrl: process.env.AI_GATEWAY_BASE_URL ?? '',
     apiKey: process.env.AI_GATEWAY_API_KEY ?? '',
