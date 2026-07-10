@@ -1,9 +1,77 @@
 'use client';
 
-import { Badge, Card, CardBody, EmptyState, ErrorState, LoadingState } from '@/components/ui';
+import { Badge, Button, Card, CardBody, EmptyState, ErrorState, LoadingState } from '@/components/ui';
+import { api, ApiError } from '@/lib/api';
 import { useApi } from '@/lib/use-api';
 import { formatDate, formatNumber } from '@/lib/utils';
-import { Bot } from 'lucide-react';
+import { Bot, LineChart } from 'lucide-react';
+import { useState } from 'react';
+
+function AnalyzeInsights() {
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<any>(null);
+
+  const run = async () => {
+    setLoading(true);
+    setResult(null);
+    try {
+      const res = await api.post('/ai/analyze/insights');
+      setResult(res.data);
+    } catch (e) {
+      setResult({ error: e instanceof ApiError ? e.message : 'Lỗi' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardBody>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="flex items-center gap-2 text-base font-semibold text-gray-800">
+            <LineChart className="h-4 w-4 text-brand-600" /> Analyze AI — nhận định
+          </h2>
+          <Button size="sm" variant="secondary" loading={loading} onClick={run}>
+            Phân tích 30 ngày
+          </Button>
+        </div>
+        {!result ? (
+          <p className="text-sm text-gray-400">Nhấn “Phân tích” để tạo nhận định từ dữ liệu thật.</p>
+        ) : result.error ? (
+          <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{result.error}</div>
+        ) : (
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <Metric label="Doanh thu" value={formatNumber(result.metrics.revenue) + 'đ'} />
+              <Metric label="Đơn" value={formatNumber(result.metrics.orders)} />
+              <Metric label="AOV" value={formatNumber(result.metrics.avg_order_value) + 'đ'} />
+              <Metric label="Tỷ lệ hủy" value={result.metrics.cancellation_rate_percent + '%'} />
+            </div>
+            <ul className="list-inside list-disc space-y-1 text-sm text-gray-700">
+              {result.insights.map((i: string, idx: number) => (
+                <li key={idx}>{i}</li>
+              ))}
+            </ul>
+            {result.narrative && (
+              <div className="rounded-lg border border-gray-100 bg-gray-50/60 p-3 text-sm text-gray-700 whitespace-pre-line">
+                {result.narrative}
+              </div>
+            )}
+          </div>
+        )}
+      </CardBody>
+    </Card>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg bg-gray-50 p-3">
+      <p className="text-xs text-gray-500">{label}</p>
+      <p className="text-sm font-semibold text-gray-900">{value}</p>
+    </div>
+  );
+}
 
 const AGENTS = [
   { key: 'trend_hunter', name: 'Trend Hunter AI', desc: 'Phát hiện xu hướng & cơ hội' },
@@ -52,6 +120,8 @@ export default function AiPage() {
           </Card>
         ))}
       </div>
+
+      <AnalyzeInsights />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Card>

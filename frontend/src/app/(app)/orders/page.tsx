@@ -3,6 +3,7 @@
 import { Badge, Card, EmptyState, ErrorState, LoadingState } from '@/components/ui';
 import { useApi } from '@/lib/use-api';
 import { formatDate, formatVND } from '@/lib/utils';
+import Link from 'next/link';
 import { useState } from 'react';
 
 interface Order {
@@ -67,7 +68,11 @@ export default function OrdersPage() {
               <tbody>
                 {data!.data.map((o) => (
                   <tr key={o.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/60">
-                    <td className="px-5 py-3 font-medium text-gray-800">{o.orderNumber}</td>
+                    <td className="px-5 py-3">
+                      <Link href={`/orders/${o.id}`} className="font-medium text-brand-700 hover:underline">
+                        {o.orderNumber}
+                      </Link>
+                    </td>
                     <td className="px-5 py-3 text-gray-600">
                       {[o.customer?.firstName, o.customer?.lastName].filter(Boolean).join(' ') || '—'}
                       <div className="text-xs text-gray-400">{o.customer?.phone}</div>

@@ -3,10 +3,13 @@
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/store/auth';
 import {
+  Bell,
   Bot,
   LayoutDashboard,
   LogOut,
+  Megaphone,
   Menu,
+  MessagesSquare,
   Package,
   ShoppingCart,
   Users,
@@ -22,6 +25,8 @@ const NAV = [
   { href: '/products', label: 'Sản phẩm', icon: Package },
   { href: '/orders', label: 'Đơn hàng', icon: ShoppingCart },
   { href: '/customers', label: 'Khách hàng', icon: Users },
+  { href: '/marketing', label: 'Marketing', icon: Megaphone },
+  { href: '/sales', label: 'Sales & FAQ', icon: MessagesSquare },
   { href: '/ai', label: 'AI Teammate', icon: Bot },
 ];
 
@@ -81,6 +86,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </button>
           <div className="hidden text-sm text-gray-500 lg:block">Xin chào, quản trị đội ngũ AI của bạn 👋</div>
           <div className="flex items-center gap-3">
+            <NotificationsBell />
             <div className="text-right">
               <p className="text-sm font-medium text-gray-800">{user?.email}</p>
               <p className="text-xs capitalize text-gray-400">{user?.role}</p>
@@ -97,6 +103,67 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </header>
         <main className="mx-auto max-w-[1280px] p-4 lg:p-8">{children}</main>
       </div>
+    </div>
+  );
+}
+
+function NotificationsBell() {
+  const [open, setOpen] = useState(false);
+  const [data, setData] = useState<{ notifications: any[]; total: number } | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    api
+      .get('/notifications')
+      .then((res) => {
+        if (active) setData(res.data);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const total = data?.total ?? 0;
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="relative inline-flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100"
+        aria-label="Thông báo"
+      >
+        <Bell className="h-4 w-4" />
+        {total > 0 && (
+          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white">
+            {total > 99 ? '99+' : total}
+          </span>
+        )}
+      </button>
+      {open && (
+        <div className="absolute right-0 top-11 z-40 w-72 rounded-xl border border-gray-100 bg-white p-2 shadow-lg">
+          <p className="px-2 py-1.5 text-xs font-semibold uppercase text-gray-400">Thông báo</p>
+          {!data || data.notifications.length === 0 ? (
+            <p className="px-2 py-3 text-sm text-gray-400">Không có thông báo mới</p>
+          ) : (
+            data.notifications.map((n) => (
+              <div key={n.type} className="rounded-lg px-2 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                <span
+                  className={
+                    n.severity === 'critical'
+                      ? 'text-red-600'
+                      : n.severity === 'warning'
+                        ? 'text-amber-600'
+                        : 'text-gray-600'
+                  }
+                >
+                  ●
+                </span>{' '}
+                {n.message}
+              </div>
+            ))
+          )}
+        </div>
+      )}
     </div>
   );
 }

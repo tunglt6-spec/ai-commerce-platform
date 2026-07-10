@@ -20,8 +20,13 @@ import { CategoriesModule } from './modules/categories/categories.module';
 import { ProductsModule } from './modules/products/products.module';
 import { CustomersModule } from './modules/customers/customers.module';
 import { OrdersModule } from './modules/orders/orders.module';
+import { ReturnsModule } from './modules/returns/returns.module';
 import { AiModule } from './modules/ai/ai.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { ContentModule } from './modules/content/content.module';
+import { FaqModule } from './modules/faq/faq.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
+import { AnalyzeModule } from './modules/analyze/analyze.module';
 
 @Module({
   imports: [
@@ -48,8 +53,13 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
     ProductsModule,
     CustomersModule,
     OrdersModule,
+    ReturnsModule,
     AiModule,
     DashboardModule,
+    ContentModule,
+    FaqModule,
+    NotificationsModule,
+    AnalyzeModule,
   ],
   providers: [
     Reflector,
