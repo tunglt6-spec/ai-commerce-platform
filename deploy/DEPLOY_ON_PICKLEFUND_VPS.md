@@ -1,11 +1,11 @@
 # Deploy AI Commerce on the shared PickleFund VPS (135.181.30.143)
 
 AI Commerce runs as an **isolated stack** (own pgvector DB + backend + frontend, no host ports)
-**behind the existing `picklefund-nginx`** via a new `commerce.picklefund.uk` vhost. PickleFund is
+**behind the existing `picklefund-nginx`** via a new `store.picklefund.uk` vhost. PickleFund is
 untouched except: (1) one `include` line in its nginx.conf, (2) an extra network attachment on the
 nginx container (reversible), (3) a new untracked vhost file in `nginx/conf.d/`.
 
-> Subdomain used below: **commerce.picklefund.uk** (covered by the existing wildcard origin cert).
+> Subdomain used below: **store.picklefund.uk** (covered by the existing wildcard origin cert).
 
 ---
 
@@ -18,7 +18,7 @@ echo '/swapfile none swap sw 0 0' >> /etc/fstab
 free -m   # confirm Swap: 2048
 ```
 
-**B. Cloudflare DNS** — add an A record (Proxied 🟠): `commerce` → `135.181.30.143`.
+**B. Cloudflare DNS** — add an A record (Proxied 🟠): `store` → `135.181.30.143`.
 (Cert is wildcard `*.picklefund.uk`, so no new cert needed.)
 
 **C. Get the code onto the VPS.** Push this repo to a (private) GitHub repo, then on the VPS:
@@ -36,7 +36,7 @@ cp deploy/.env.prod.example deploy/.env.prod
 bash deploy/gen-secrets.sh          # copy generated lines into deploy/.env.prod
 nano deploy/.env.prod
 # Set at minimum:
-#   DOMAIN=commerce.picklefund.uk
+#   DOMAIN=store.picklefund.uk
 #   ACME_EMAIL=... (unused here — Cloudflare/nginx handle TLS — but keep valid)
 #   POSTGRES_PASSWORD / JWT_ACCESS_SECRET / JWT_REFRESH_SECRET / INTEGRATION_ENC_KEY  (from gen-secrets)
 ```
@@ -85,9 +85,9 @@ docker exec -it ai-commerce-api npx ts-node prisma/seed.ts
 
 ## 6. Verify
 ```bash
-curl -s https://commerce.picklefund.uk/api/v1/health/ready   # {"status":"ready","checks":{"database":"up"}}
+curl -s https://store.picklefund.uk/api/v1/health/ready   # {"status":"ready","checks":{"database":"up"}}
 ```
-Open `https://commerce.picklefund.uk/` → login. Confirm PickleFund still works:
+Open `https://store.picklefund.uk/` → login. Confirm PickleFund still works:
 `https://app.picklefund.uk` and `https://api.picklefund.uk/health`.
 
 ---
