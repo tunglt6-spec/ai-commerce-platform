@@ -1,0 +1,41 @@
+name: Deploy (VPS)
+
+# Manual deploy over SSH. Requires these repository secrets to be configured:
+#   SSH_HOST      - VPS host/IP
+#   SSH_USER      - SSH user (member of the docker group)
+#   SSH_KEY       - private SSH key (PEM)
+#   DEPLOY_PATH   - absolute path of the checked-out repo on the VPS
+# The VPS must already have: docker + compose, the repo cloned at DEPLOY_PATH,
+# and deploy/.env.prod populated (see deploy/DEPLOYMENT.md). This workflow does
+# NOT create secrets or infrastructure.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git ref to deploy
+        default: main
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            set -euo pipefail
+            cd "${{ secrets.DEPLOY_PATH }}"
+            git fetch --all
+            git checkout "${{ github.event.inputs.ref }}"
+            git pull --ff-only
+            # Backup DB before migrating (safe).
+            bash deploy/backup.sh || echo "backup skipped (first deploy?)"
+            docker compose --env-file deploy/.env.prod -f deploy/compose.prod.yml up -d --build
+            # Backend applies migrations on boot (prisma migrate deploy).
+            sleep 10
+            docker compose --env-file deploy/.env.prod -f deploy/compose.prod.yml ps

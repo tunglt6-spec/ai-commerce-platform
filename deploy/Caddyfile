@@ -1,0 +1,32 @@
+# Automatic HTTPS via Let's Encrypt. Requires DOMAIN's DNS A/AAAA record to
+# point at this server, and ports 80/443 reachable from the internet.
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	# API — backend serves under /api/v1 (path preserved).
+	@api path /api/*
+	handle @api {
+		reverse_proxy backend:3001
+	}
+
+	# Uploaded media (path preserved: backend serves /uploads/<file>).
+	@uploads path /uploads/*
+	handle @uploads {
+		reverse_proxy backend:3001
+	}
+
+	# Everything else -> Next.js frontend.
+	handle {
+		reverse_proxy frontend:3000
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+	}
+}

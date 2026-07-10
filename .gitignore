@@ -14,8 +14,14 @@ out/
 .env
 .env.local
 .env.*.local
+.env.prod
+deploy/.env.prod
 *.pem
 !.env.example
+!deploy/.env.prod.example
+
+# Backups
+backups/
 
 # Logs
 logs/
