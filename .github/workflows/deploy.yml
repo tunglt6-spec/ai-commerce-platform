@@ -1,41 +1,72 @@
-name: Deploy (VPS)
+name: Deploy
 
-# Manual deploy over SSH. Requires these repository secrets to be configured:
-#   SSH_HOST      - VPS host/IP
-#   SSH_USER      - SSH user (member of the docker group)
-#   SSH_KEY       - private SSH key (PEM)
-#   DEPLOY_PATH   - absolute path of the checked-out repo on the VPS
-# The VPS must already have: docker + compose, the repo cloned at DEPLOY_PATH,
-# and deploy/.env.prod populated (see deploy/DEPLOYMENT.md). This workflow does
-# NOT create secrets or infrastructure.
+# Same pattern as PickleFund: test -> SSH deploy to the VPS.
+# Configure these repo secrets (Settings -> Secrets and variables -> Actions):
+#   VPS_HOST      = 135.181.30.143
+#   VPS_USER      = root
+#   VPS_PASSWORD  = <VPS root password>
+#   VPS_PORT      = 22            (optional, defaults to 22)
+#   DEPLOY_PATH   = /opt/ai-commerce   (optional, defaults below)
+# One-time on the VPS: point the repo origin at GitHub so `git pull` works:
+#   cd /opt/ai-commerce && git remote set-url origin <GITHUB_URL> \
+#     && git fetch origin && git checkout -B main origin/main
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
-    inputs:
-      ref:
-        description: Git ref to deploy
-        default: main
-        required: true
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: commerce
+          POSTGRES_PASSWORD: commerce
+          POSTGRES_DB: ai_commerce
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U commerce -d ai_commerce"
+          --health-interval 10s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://commerce:commerce@localhost:5432/ai_commerce?schema=public
+      JWT_ACCESS_SECRET: ci_access_secret_min16_chars_xxxxx
+      JWT_REFRESH_SECRET: ci_refresh_secret_min16_chars_xxxx
+      INTEGRATION_ENC_KEY: ci_integration_key_ci_integration_key_32
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm --workspace backend run db:generate
+      - run: npm --workspace backend run db:migrate
+      - run: npm --workspace backend run lint
+      - run: npm --workspace backend run build
+      - run: npm --workspace backend run test
+      - run: npm --workspace backend run test:e2e
+      - run: npm --workspace frontend run build
+        env:
+          NEXT_PUBLIC_API_BASE_URL: http://localhost:3001/api/v1
+
   deploy:
+    needs: test
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy over SSH
+      - name: Deploy to VPS over SSH
         uses: appleboy/ssh-action@v1.2.0
         with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          port: ${{ secrets.VPS_PORT || 22 }}
           script: |
             set -euo pipefail
-            cd "${{ secrets.DEPLOY_PATH }}"
-            git fetch --all
-            git checkout "${{ github.event.inputs.ref }}"
-            git pull --ff-only
-            # Backup DB before migrating (safe).
-            bash deploy/backup.sh || echo "backup skipped (first deploy?)"
-            docker compose --env-file deploy/.env.prod -f deploy/compose.prod.yml up -d --build
-            # Backend applies migrations on boot (prisma migrate deploy).
-            sleep 10
-            docker compose --env-file deploy/.env.prod -f deploy/compose.prod.yml ps
+            cd "${{ secrets.DEPLOY_PATH || '/opt/ai-commerce' }}"
+            git fetch origin
+            git reset --hard origin/main
+            bash deploy/vps-deploy.sh

@@ -9,6 +9,27 @@ nginx container (reversible), (3) a new untracked vhost file in `nginx/conf.d/`.
 
 ---
 
+## Automated deploy (recommended — same model as PickleFund)
+
+All VPS-side steps are wrapped in one idempotent script, **`deploy/vps-deploy.sh`**
+(build → wait healthy → bridge nginx → install vhost → `nginx -t` → reload → verify).
+Run it two ways:
+
+- **Manually (one command on the VPS):**
+  ```bash
+  cd /opt/ai-commerce && bash deploy/vps-deploy.sh
+  ```
+- **CI/CD (push-to-deploy)** via `.github/workflows/deploy.yml` (GitHub Actions → test → SSH → runs the same script). Setup:
+  1. Create a private GitHub repo, then locally: `git remote add origin <URL> && git push -u origin main`.
+  2. Repo **Settings → Secrets → Actions**: `VPS_HOST=135.181.30.143`, `VPS_USER=root`, `VPS_PASSWORD=<root pw>`, `VPS_PORT=22`.
+  3. One-time on the VPS (point origin at GitHub): `cd /opt/ai-commerce && git remote set-url origin <URL> && git fetch origin && git checkout -B main origin/main`.
+  4. Push to `main` (or Actions → Deploy → *Run workflow*) → auto test + deploy.
+
+Prerequisites A (swap) and B (DNS) below are still required once. `deploy/.env.prod` lives on
+the VPS (git-ignored) and is reused by every deploy. The manual steps in §1–§6 remain as reference.
+
+---
+
 ## Prerequisites (do first)
 
 **A. Add 2 GB swap** — the box has 4 GB RAM and **0 swap**; the Next.js build can OOM without it.
