@@ -5,7 +5,7 @@ import { api, ApiError } from '@/lib/api';
 import { AGENTS, agentMeta } from '@/lib/agents';
 import { useApi } from '@/lib/use-api';
 import { formatDate, formatNumber } from '@/lib/utils';
-import { Bot, ChevronRight, Coins, Cpu, LineChart, ListChecks } from 'lucide-react';
+import { ChevronRight, Coins, Cpu, LineChart, ListChecks } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';

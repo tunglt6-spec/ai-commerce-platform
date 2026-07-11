@@ -36,18 +36,19 @@ export default function AgentDetailPage({ params }: { params: { agent: string } 
 
   const rows = data?.data ?? [];
   const stats = useMemo(() => {
+    const list = data?.data ?? [];
     let completed = 0;
     let failed = 0;
     let tokens = 0;
     let cost = 0;
-    for (const t of rows) {
+    for (const t of list) {
       if (t.status === 'completed' || t.status === 'approved') completed += 1;
       if (t.status === 'failed' || t.status === 'rejected') failed += 1;
       tokens += t.tokensUsed ?? 0;
       cost += Number(t.estimatedCost ?? 0);
     }
-    return { total: rows.length, completed, failed, tokens, cost };
-  }, [rows]);
+    return { total: list.length, completed, failed, tokens, cost };
+  }, [data]);
 
   return (
     <div className="space-y-6">
