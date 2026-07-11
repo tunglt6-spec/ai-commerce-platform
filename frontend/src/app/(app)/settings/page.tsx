@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { Button, Card, CardBody, Input, Label } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
@@ -43,13 +43,13 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-gray-900">Cài đặt</h1>
-        <p className="text-sm text-gray-500">Tài khoản: {user?.email}</p>
+        <h1 className="text-2xl font-semibold text-ink-950">Cài đặt</h1>
+        <p className="text-sm text-ink-500">Tài khoản: {user?.email}</p>
       </div>
 
       <Card className="max-w-lg">
         <CardBody>
-          <h2 className="mb-4 text-base font-semibold text-gray-800">Đổi mật khẩu</h2>
+          <h2 className="mb-4 text-base font-semibold text-ink-900">Đổi mật khẩu</h2>
           {done ? (
             <div className="rounded-lg bg-green-50 px-3 py-3 text-sm text-green-700">
               Đổi mật khẩu thành công. Đang đăng xuất để đăng nhập lại…
@@ -77,7 +77,7 @@ export default function SettingsPage() {
                   onChange={(e) => setForm({ ...form, next: e.target.value })}
                   required
                 />
-                <p className="mt-1 text-xs text-gray-400">
+                <p className="mt-1 text-xs text-ink-400">
                   Tối thiểu 8 ký tự, gồm chữ hoa, số và ký tự đặc biệt.
                 </p>
               </div>

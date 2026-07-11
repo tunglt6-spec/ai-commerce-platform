@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { Badge, Button, Card, CardBody, EmptyState, ErrorState, Input, Label, LoadingState } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
@@ -35,8 +35,8 @@ export default function MarketingPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Marketing</h1>
-          <p className="text-sm text-gray-500">Nội dung & lịch đăng đa kênh</p>
+          <h1 className="text-2xl font-semibold text-ink-950">Marketing</h1>
+          <p className="text-sm text-ink-500">Nội dung & lịch đăng đa kênh</p>
         </div>
         {canOperate && (
           <Button onClick={() => setShowCreate(true)}>
@@ -49,7 +49,7 @@ export default function MarketingPage() {
 
       <Card>
         <CardBody>
-          <h2 className="mb-4 text-base font-semibold text-gray-800">Nội dung</h2>
+          <h2 className="mb-4 text-base font-semibold text-ink-900">Nội dung</h2>
           {assets.loading ? (
             <LoadingState />
           ) : assets.error ? (
@@ -59,10 +59,10 @@ export default function MarketingPage() {
           ) : (
             <div className="space-y-2">
               {assets.data!.data.map((a) => (
-                <div key={a.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gray-100 p-3">
+                <div key={a.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-ink-100 p-3">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-gray-800">{a.title || a.contentType}</p>
-                    <p className="truncate text-xs text-gray-400">
+                    <p className="truncate text-sm font-medium text-ink-900">{a.title || a.contentType}</p>
+                    <p className="truncate text-xs text-ink-400">
                       {a.contentType} · {a.platform || 'đa kênh'} · <Badge tone={a.status}>{a.status}</Badge>
                     </p>
                   </div>
@@ -99,7 +99,7 @@ export default function MarketingPage() {
 
       <Card>
         <CardBody>
-          <h2 className="mb-4 text-base font-semibold text-gray-800">Lịch đăng</h2>
+          <h2 className="mb-4 text-base font-semibold text-ink-900">Lịch đăng</h2>
           {calendar.loading ? (
             <LoadingState />
           ) : (calendar.data?.data.length ?? 0) === 0 ? (
@@ -107,9 +107,9 @@ export default function MarketingPage() {
           ) : (
             <div className="space-y-2">
               {calendar.data!.data.map((c) => (
-                <div key={c.id} className="flex items-center justify-between rounded-lg border border-gray-100 p-3 text-sm">
-                  <span className="text-gray-700">{c.contentAsset?.title || c.contentAsset?.contentType}</span>
-                  <span className="text-gray-500">
+                <div key={c.id} className="flex items-center justify-between rounded-lg border border-ink-100 p-3 text-sm">
+                  <span className="text-ink-700">{c.contentAsset?.title || c.contentAsset?.contentType}</span>
+                  <span className="text-ink-500">
                     {formatDate(c.scheduledDate)} <Badge tone={c.status}>{c.status}</Badge>
                   </span>
                 </div>
@@ -149,14 +149,14 @@ function CreateContentModal({ onClose, onCreated }: { onClose: () => void; onCre
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
       <Card className="relative z-10 w-full max-w-lg">
         <CardBody>
-          <h2 className="mb-4 text-lg font-semibold text-gray-800">Tạo nội dung</h2>
+          <h2 className="mb-4 text-lg font-semibold text-ink-900">Tạo nội dung</h2>
           <form onSubmit={submit} className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label htmlFor="ct">Loại</Label>
                 <select
                   id="ct"
-                  className="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm"
+                  className="h-10 w-full rounded-lg border border-ink-200 bg-white px-3 text-sm"
                   value={form.content_type}
                   onChange={(e) => setForm({ ...form, content_type: e.target.value })}
                 >
@@ -180,7 +180,7 @@ function CreateContentModal({ onClose, onCreated }: { onClose: () => void; onCre
               <Label htmlFor="co">Nội dung</Label>
               <textarea
                 id="co"
-                className="min-h-[120px] w-full rounded-lg border border-gray-200 bg-white p-3 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+                className="min-h-[120px] w-full rounded-lg border border-ink-200 bg-white p-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
                 value={form.content}
                 onChange={(e) => setForm({ ...form, content: e.target.value })}
                 required

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { Badge, Button, Card, CardBody, EmptyState, ErrorState, LoadingState } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
@@ -28,7 +28,7 @@ function AnalyzeInsights() {
     <Card>
       <CardBody>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="flex items-center gap-2 text-base font-semibold text-gray-800">
+          <h2 className="flex items-center gap-2 text-base font-semibold text-ink-900">
             <LineChart className="h-4 w-4 text-brand-600" /> Analyze AI — nhận định
           </h2>
           <Button size="sm" variant="secondary" loading={loading} onClick={run}>
@@ -36,7 +36,7 @@ function AnalyzeInsights() {
           </Button>
         </div>
         {!result ? (
-          <p className="text-sm text-gray-400">Nhấn “Phân tích” để tạo nhận định từ dữ liệu thật.</p>
+          <p className="text-sm text-ink-400">Nhấn “Phân tích” để tạo nhận định từ dữ liệu thật.</p>
         ) : result.error ? (
           <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{result.error}</div>
         ) : (
@@ -47,13 +47,13 @@ function AnalyzeInsights() {
               <Metric label="AOV" value={formatNumber(result.metrics.avg_order_value) + 'đ'} />
               <Metric label="Tỷ lệ hủy" value={result.metrics.cancellation_rate_percent + '%'} />
             </div>
-            <ul className="list-inside list-disc space-y-1 text-sm text-gray-700">
+            <ul className="list-inside list-disc space-y-1 text-sm text-ink-700">
               {result.insights.map((i: string, idx: number) => (
                 <li key={idx}>{i}</li>
               ))}
             </ul>
             {result.narrative && (
-              <div className="rounded-lg border border-gray-100 bg-gray-50/60 p-3 text-sm text-gray-700 whitespace-pre-line">
+              <div className="rounded-lg border border-ink-100 bg-ink-50/60 p-3 text-sm text-ink-700 whitespace-pre-line">
                 {result.narrative}
               </div>
             )}
@@ -66,9 +66,9 @@ function AnalyzeInsights() {
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg bg-gray-50 p-3">
-      <p className="text-xs text-gray-500">{label}</p>
-      <p className="text-sm font-semibold text-gray-900">{value}</p>
+    <div className="rounded-lg bg-ink-50 p-3">
+      <p className="text-xs text-ink-500">{label}</p>
+      <p className="text-sm font-semibold text-ink-950">{value}</p>
     </div>
   );
 }
@@ -101,8 +101,8 @@ export default function AiPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-gray-900">AI Teammate</h1>
-        <p className="text-sm text-gray-500">Đội ngũ AI vận hành & lịch sử tác vụ</p>
+        <h1 className="text-2xl font-semibold text-ink-950">AI Teammate</h1>
+        <p className="text-sm text-ink-500">Đội ngũ AI vận hành & lịch sử tác vụ</p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -113,8 +113,8 @@ export default function AiPage() {
                 <Bot className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-gray-800">{a.name}</p>
-                <p className="text-xs text-gray-500">{a.desc}</p>
+                <p className="text-sm font-semibold text-ink-900">{a.name}</p>
+                <p className="text-xs text-ink-500">{a.desc}</p>
               </div>
             </CardBody>
           </Card>
@@ -126,27 +126,27 @@ export default function AiPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Card>
           <CardBody>
-            <p className="text-sm text-gray-500">Chi phí AI (30 ngày)</p>
-            <p className="text-2xl font-semibold text-gray-900">${(cost?.data?.total_cost ?? 0).toFixed(4)}</p>
+            <p className="text-sm text-ink-500">Chi phí AI (30 ngày)</p>
+            <p className="text-2xl font-semibold text-ink-950">${(cost?.data?.total_cost ?? 0).toFixed(4)}</p>
           </CardBody>
         </Card>
         <Card>
           <CardBody>
-            <p className="text-sm text-gray-500">Tổng token</p>
-            <p className="text-2xl font-semibold text-gray-900">{formatNumber(cost?.data?.total_tokens ?? 0)}</p>
+            <p className="text-sm text-ink-500">Tổng token</p>
+            <p className="text-2xl font-semibold text-ink-950">{formatNumber(cost?.data?.total_tokens ?? 0)}</p>
           </CardBody>
         </Card>
         <Card>
           <CardBody>
-            <p className="text-sm text-gray-500">Số tác vụ</p>
-            <p className="text-2xl font-semibold text-gray-900">{formatNumber(cost?.data?.task_count ?? 0)}</p>
+            <p className="text-sm text-ink-500">Số tác vụ</p>
+            <p className="text-2xl font-semibold text-ink-950">{formatNumber(cost?.data?.task_count ?? 0)}</p>
           </CardBody>
         </Card>
       </div>
 
       <Card>
         <CardBody>
-          <h2 className="mb-4 text-base font-semibold text-gray-800">Lịch sử tác vụ AI</h2>
+          <h2 className="mb-4 text-base font-semibold text-ink-900">Lịch sử tác vụ AI</h2>
           {loading ? (
             <LoadingState />
           ) : error ? (
@@ -157,7 +157,7 @@ export default function AiPage() {
             <div className="overflow-x-auto">
               <table className="w-full min-w-[640px] text-sm">
                 <thead>
-                  <tr className="border-b border-gray-100 text-left text-xs uppercase text-gray-400">
+                  <tr className="border-b border-ink-100 text-left text-xs uppercase text-ink-400">
                     <th className="py-2 font-medium">Agent</th>
                     <th className="py-2 font-medium">Tác vụ</th>
                     <th className="py-2 font-medium">Model</th>
@@ -168,17 +168,17 @@ export default function AiPage() {
                 </thead>
                 <tbody>
                   {tasks!.data.map((t) => (
-                    <tr key={t.id} className="border-b border-gray-50 last:border-0">
-                      <td className="py-2.5 font-medium text-gray-700">{t.agentName}</td>
-                      <td className="py-2.5 text-gray-600">{t.taskType}</td>
-                      <td className="py-2.5 text-gray-500">{t.modelUsed ?? '—'}</td>
-                      <td className="py-2.5 text-right text-gray-600">{formatNumber(t.tokensUsed ?? 0)}</td>
+                    <tr key={t.id} className="border-b border-ink-50 last:border-0">
+                      <td className="py-2.5 font-medium text-ink-700">{t.agentName}</td>
+                      <td className="py-2.5 text-ink-600">{t.taskType}</td>
+                      <td className="py-2.5 text-ink-500">{t.modelUsed ?? '-'}</td>
+                      <td className="py-2.5 text-right text-ink-600">{formatNumber(t.tokensUsed ?? 0)}</td>
                       <td className="py-2.5">
                         <Badge tone={t.status === 'completed' ? 'completed' : t.status === 'failed' ? 'cancelled' : 'pending'}>
                           {t.status}
                         </Badge>
                       </td>
-                      <td className="py-2.5 text-gray-500">{formatDate(t.createdAt)}</td>
+                      <td className="py-2.5 text-ink-500">{formatDate(t.createdAt)}</td>
                     </tr>
                   ))}
                 </tbody>

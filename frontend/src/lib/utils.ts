@@ -11,7 +11,7 @@ export function formatVND(value: number | string | null | undefined): string {
 }
 
 export function formatDate(value: string | Date | null | undefined): string {
-  if (!value) return '—';
+  if (!value) return '-';
   const d = new Date(value);
   return d.toLocaleDateString('vi-VN', { year: 'numeric', month: '2-digit', day: '2-digit' });
 }

@@ -1,11 +1,11 @@
 'use client';
 
-import { Badge, Button, Card, CardBody, ErrorState, LoadingState } from '@/components/ui';
+import { Badge, Button, Card, CardBody, ErrorState, LoadingState, PageHeader, StatCard, TableWrap } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import { useApi } from '@/lib/use-api';
 import { usePermissions } from '@/lib/roles';
 import { formatNumber, formatVND } from '@/lib/utils';
-import { Boxes, DollarSign, Package, ShoppingCart, TrendingUp, Users } from 'lucide-react';
+import { Boxes, DollarSign, Package, ShoppingCart, Sparkles, TrendingUp, Users } from 'lucide-react';
 import { useState } from 'react';
 
 interface Summary {
@@ -15,33 +15,6 @@ interface Summary {
   customers: { total: number; new_today: number };
   inventory: { total_stock_value: number; low_stock_items: number };
   top_products: { id: string; name: string; units_sold: number; revenue: number }[];
-}
-
-function Kpi({
-  icon: Icon,
-  label,
-  value,
-  sub,
-}: {
-  icon: any;
-  label: string;
-  value: string;
-  sub?: string;
-}) {
-  return (
-    <Card>
-      <CardBody className="flex items-center gap-4">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
-          <Icon className="h-5 w-5" />
-        </div>
-        <div className="min-w-0">
-          <p className="truncate text-sm text-gray-500">{label}</p>
-          <p className="truncate text-xl font-semibold text-gray-900">{value}</p>
-          {sub && <p className="truncate text-xs text-gray-400">{sub}</p>}
-        </div>
-      </CardBody>
-    </Card>
-  );
 }
 
 export default function DashboardPage() {
@@ -61,7 +34,7 @@ export default function DashboardPage() {
       const res = await api.post('/ai/trends/analyze');
       setTrend(res.data);
     } catch (e) {
-      setTrend({ error: e instanceof ApiError ? e.message : 'Lỗi phân tích' });
+      setTrend({ error: e instanceof ApiError ? e.message : 'Lỗi phân tích xu hướng' });
     } finally {
       setTrendLoading(false);
     }
@@ -70,121 +43,168 @@ export default function DashboardPage() {
   if (loading) return <LoadingState />;
   if (error) return <ErrorState message={error} onRetry={reload} />;
   const s = data!.data;
+  const opportunities = intel?.data?.top_opportunities ?? [];
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-gray-900">Tổng quan</h1>
-        <p className="text-sm text-gray-500">Chỉ số vận hành theo thời gian thực</p>
-      </div>
+      <PageHeader
+        eyebrow="AICP Command Center"
+        title="Tổng quan vận hành"
+        description="Theo dõi doanh thu, đơn hàng, tồn kho và tín hiệu AI theo thời gian thực để ra quyết định nhanh hơn."
+        action={
+          <div className="grid grid-cols-3 gap-2 rounded-2xl border border-white/10 bg-white/[0.08] p-2 text-center">
+            <div className="px-3 py-2">
+              <p className="number text-lg font-semibold">{formatNumber(s.orders.pending)}</p>
+              <p className="text-[11px] text-ink-200">chờ xử lý</p>
+            </div>
+            <div className="px-3 py-2">
+              <p className="number text-lg font-semibold">{formatNumber(s.inventory.low_stock_items)}</p>
+              <p className="text-[11px] text-ink-200">sắp hết</p>
+            </div>
+            <div className="px-3 py-2">
+              <p className="number text-lg font-semibold">${(cost?.data?.total_cost ?? 0).toFixed(4)}</p>
+              <p className="text-[11px] text-ink-200">AI 7 ngày</p>
+            </div>
+          </div>
+        }
+      />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Kpi icon={DollarSign} label="Doanh thu hôm nay" value={formatVND(s.revenue.today)} sub={`Tuần: ${formatVND(s.revenue.this_week)}`} />
-        <Kpi icon={ShoppingCart} label="Đơn mới hôm nay" value={formatNumber(s.orders.new_today)} sub={`Chờ xử lý: ${s.orders.pending}`} />
-        <Kpi icon={Package} label="Sản phẩm" value={formatNumber(s.products.total)} sub={`Đang bán: ${s.products.active}`} />
-        <Kpi icon={Users} label="Khách hàng" value={formatNumber(s.customers.total)} sub={`Mới hôm nay: ${s.customers.new_today}`} />
-        <Kpi icon={DollarSign} label="Doanh thu tháng" value={formatVND(s.revenue.this_month)} />
-        <Kpi icon={Boxes} label="Giá trị tồn kho" value={formatVND(s.inventory.total_stock_value)} sub={`Sắp hết: ${s.inventory.low_stock_items} mã`} />
-        <Kpi icon={ShoppingCart} label="Đơn hoàn tất" value={formatNumber(s.orders.completed)} />
-        <Kpi
+        <StatCard icon={DollarSign} label="Doanh thu hôm nay" value={formatVND(s.revenue.today)} sub={`Tuần: ${formatVND(s.revenue.this_week)}`} />
+        <StatCard icon={ShoppingCart} label="Đơn mới hôm nay" value={formatNumber(s.orders.new_today)} sub={`Chờ xử lý: ${s.orders.pending}`} tone="blue" />
+        <StatCard icon={Package} label="Sản phẩm" value={formatNumber(s.products.total)} sub={`Đang bán: ${s.products.active}`} />
+        <StatCard icon={Users} label="Khách hàng" value={formatNumber(s.customers.total)} sub={`Mới hôm nay: ${s.customers.new_today}`} tone="amber" />
+        <StatCard icon={DollarSign} label="Doanh thu tháng" value={formatVND(s.revenue.this_month)} />
+        <StatCard icon={Boxes} label="Giá trị tồn kho" value={formatVND(s.inventory.total_stock_value)} sub={`Sắp hết: ${s.inventory.low_stock_items} mã`} tone="rose" />
+        <StatCard icon={ShoppingCart} label="Đơn hoàn tất" value={formatNumber(s.orders.completed)} tone="blue" />
+        <StatCard
           icon={TrendingUp}
-          label="Chi phí AI (7 ngày)"
+          label="Chi phí AI trong 7 ngày"
           value={`$${(cost?.data?.total_cost ?? 0).toFixed(4)}`}
           sub={`${formatNumber(cost?.data?.task_count ?? 0)} tác vụ`}
         />
       </div>
 
-      <Card>
-        <CardBody>
-          <h2 className="mb-4 text-base font-semibold text-gray-800">Top sản phẩm theo doanh thu</h2>
-          {s.top_products.length === 0 ? (
-            <p className="py-8 text-center text-sm text-gray-400">Chưa có dữ liệu bán hàng</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[480px] text-sm">
-                <thead>
-                  <tr className="border-b border-gray-100 text-left text-xs uppercase text-gray-400">
-                    <th className="pb-2 font-medium">Sản phẩm</th>
-                    <th className="pb-2 text-right font-medium">Đã bán</th>
-                    <th className="pb-2 text-right font-medium">Doanh thu</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {s.top_products.map((p) => (
-                    <tr key={p.id} className="border-b border-gray-50 last:border-0">
-                      <td className="py-3 font-medium text-gray-800">{p.name}</td>
-                      <td className="py-3 text-right text-gray-600">{formatNumber(p.units_sold)}</td>
-                      <td className="py-3 text-right font-medium text-gray-900">{formatVND(p.revenue)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardBody>
-      </Card>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.25fr_.75fr]">
         <Card>
           <CardBody>
-            <h2 className="mb-4 text-base font-semibold text-gray-800">Top cơ hội (Product AI)</h2>
-            {(intel?.data?.top_opportunities?.length ?? 0) === 0 ? (
-              <p className="py-6 text-center text-sm text-gray-400">Chưa có sản phẩm để chấm điểm</p>
-            ) : (
-              <div className="space-y-2">
-                {intel!.data.top_opportunities.slice(0, 5).map((p) => (
-                  <div key={p.id} className="flex items-center justify-between text-sm">
-                    <span className="truncate text-gray-700">{p.name}</span>
-                    <span className="flex items-center gap-2">
-                      <span className="font-semibold text-brand-600">{Number(p.productScore).toFixed(0)}</span>
-                      <span className="text-xs text-gray-400">{formatVND(p.retailPrice)}</span>
-                    </span>
-                  </div>
-                ))}
+            <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-ink-950">Top sản phẩm theo doanh thu</h2>
+                <p className="text-sm text-ink-500">Dữ liệu bán hàng được xếp theo doanh thu thực ghi nhận.</p>
               </div>
+              <Badge tone="active">{s.top_products.length} sản phẩm</Badge>
+            </div>
+            {s.top_products.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-ink-200 bg-ink-50/70 px-6 py-12 text-center">
+                <p className="text-sm font-semibold text-ink-700">Chưa có dữ liệu bán hàng</p>
+                <p className="mt-1 text-xs text-ink-500">Khi đơn hoàn tất, bảng này sẽ tự động hiển thị sản phẩm có doanh thu tốt nhất.</p>
+              </div>
+            ) : (
+              <TableWrap>
+                <table className="w-full min-w-[520px] text-sm">
+                  <thead>
+                    <tr className="border-b border-ink-100 text-left text-xs uppercase tracking-[0.12em] text-ink-400">
+                      <th className="px-5 py-4 font-semibold">Sản phẩm</th>
+                      <th className="px-5 py-4 text-right font-semibold">Đã bán</th>
+                      <th className="px-5 py-4 text-right font-semibold">Doanh thu</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {s.top_products.map((p, index) => (
+                      <tr key={p.id} className="border-b border-ink-100/70 last:border-0 hover:bg-brand-50/50">
+                        <td className="px-5 py-4">
+                          <div className="flex items-center gap-3">
+                            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-ink-100 text-xs font-bold text-ink-600">
+                              {index + 1}
+                            </span>
+                            <span className="font-semibold text-ink-900">{p.name}</span>
+                          </div>
+                        </td>
+                        <td className="number px-5 py-4 text-right text-ink-600">{formatNumber(p.units_sold)}</td>
+                        <td className="number px-5 py-4 text-right font-semibold text-ink-950">{formatVND(p.revenue)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </TableWrap>
             )}
           </CardBody>
         </Card>
 
-        <Card>
-          <CardBody>
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="flex items-center gap-2 text-base font-semibold text-gray-800">
-                <TrendingUp className="h-4 w-4 text-brand-600" /> Trend Hunter AI
-              </h2>
+        <Card className="overflow-hidden">
+          <CardBody className="space-y-5">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-ink-950">Trend Hunter AI</h2>
+                <p className="text-sm text-ink-500">Đọc tín hiệu 30 ngày gần nhất.</p>
+              </div>
               <Button size="sm" variant="secondary" loading={trendLoading} disabled={!canManage} onClick={runTrend}>
-                Phân tích xu hướng
+                Phân tích
               </Button>
             </div>
             {!trend ? (
-              <p className="text-sm text-gray-400">
-                {canManage ? 'Nhấn để phân tích xu hướng từ dữ liệu bán 30 ngày.' : 'Cần quyền Manager để chạy phân tích.'}
-              </p>
+              <div className="rounded-2xl bg-ink-950 p-5 text-white">
+                <Sparkles className="mb-4 h-5 w-5 text-brand-300" />
+                <p className="text-sm leading-6 text-ink-100">
+                  {canManage
+                    ? 'Chạy phân tích để tìm sản phẩm đang tăng tốc, nhóm hàng cần đẩy nội dung và rủi ro tồn kho.'
+                    : 'Cần quyền Manager để chạy phân tích xu hướng.'}
+                </p>
+              </div>
             ) : trend.error ? (
-              <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{trend.error}</div>
+              <div className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{trend.error}</div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {(trend.rising_products ?? []).slice(0, 5).map((p: any) => (
-                  <div key={p.product_id} className="flex items-center justify-between text-sm">
-                    <span className="truncate text-gray-700">{p.name}</span>
-                    <span className="text-xs text-gray-500">
-                      bán {p.units_sold_30d} · điểm xu hướng <span className="font-semibold text-brand-600">{p.trend_score}</span>
-                    </span>
+                  <div key={p.product_id} className="rounded-2xl border border-ink-100 bg-white/70 p-4">
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <span className="truncate font-semibold text-ink-800">{p.name}</span>
+                      <span className="number text-brand-700">{p.trend_score}</span>
+                    </div>
+                    <p className="mt-1 text-xs text-ink-500">Đã bán {p.units_sold_30d} trong 30 ngày</p>
                   </div>
                 ))}
                 {trend.narrative && (
-                  <div className="mt-2 whitespace-pre-line rounded-lg border border-gray-100 bg-gray-50/60 p-3 text-xs text-gray-700">
-                    {trend.narrative}
-                  </div>
+                  <div className="whitespace-pre-line rounded-2xl bg-ink-50 p-4 text-xs leading-5 text-ink-700">{trend.narrative}</div>
                 )}
                 {(trend.rising_products ?? []).length === 0 && (
-                  <p className="text-sm text-gray-400">Chưa đủ dữ liệu bán hàng để phân tích.</p>
+                  <p className="rounded-2xl bg-ink-50 p-4 text-sm text-ink-500">Chưa đủ dữ liệu bán hàng để phân tích.</p>
                 )}
               </div>
             )}
           </CardBody>
         </Card>
       </div>
+
+      <Card>
+        <CardBody>
+          <div className="mb-5 flex items-end justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-ink-950">Top cơ hội Product AI</h2>
+              <p className="text-sm text-ink-500">Sản phẩm có điểm cơ hội cao nhất để ưu tiên nội dung và tồn kho.</p>
+            </div>
+            <Badge tone="MEDIUM">Scoring</Badge>
+          </div>
+          {opportunities.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-ink-200 bg-ink-50/70 px-6 py-10 text-center">
+              <p className="text-sm font-semibold text-ink-700">Chưa có sản phẩm để chấm điểm</p>
+            </div>
+          ) : (
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+              {opportunities.slice(0, 5).map((p) => (
+                <div key={p.id} className="rounded-2xl border border-ink-100 bg-white/70 p-4">
+                  <p className="truncate text-sm font-semibold text-ink-800">{p.name}</p>
+                  <div className="mt-4 flex items-end justify-between">
+                    <span className="number text-3xl font-semibold text-brand-700">{Number(p.productScore).toFixed(0)}</span>
+                    <span className="text-xs text-ink-500">{formatVND(p.retailPrice)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardBody>
+      </Card>
     </div>
   );
 }

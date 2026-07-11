@@ -94,6 +94,36 @@ export async function uploadFile(file: File): Promise<{ url: string; filename: s
   return { ...json.data, url: `${origin}${json.data.url}` };
 }
 
+/** Download an authenticated file (e.g. CSV export) and trigger a browser save. */
+export async function downloadFile(path: string, fallbackName = 'export.csv'): Promise<void> {
+  const token = useAuth.getState().accessToken;
+  const res = await fetch(`${BASE_URL}${path}`, {
+    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+  });
+  if (!res.ok) {
+    let msg = `Tải xuống thất bại (${res.status})`;
+    try {
+      const j = await res.json();
+      msg = j?.error?.message || msg;
+    } catch {
+      /* non-JSON body */
+    }
+    throw new ApiError(res.status, 'DOWNLOAD_ERROR', msg);
+  }
+  const disposition = res.headers.get('Content-Disposition') || '';
+  const match = /filename="?([^"]+)"?/.exec(disposition);
+  const filename = match?.[1] || fallbackName;
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 // Typed helpers
 export const api = {
   get: <T = any>(path: string) => apiRequest<T>(path),

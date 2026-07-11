@@ -173,6 +173,48 @@ describe('AI Commerce Platform (e2e)', () => {
     expect(res.body.data[0].role).toBeDefined();
   });
 
+  it('reports: sales report returns real totals + daily series', async () => {
+    const res = await request(http)
+      .get('/api/v1/reports/sales?from=2000-01-01')
+      .set('Authorization', `Bearer ${t1Token}`)
+      .expect(200);
+    expect(res.body.data.granularity).toBe('day');
+    expect(Array.isArray(res.body.data.series)).toBe(true);
+    // t1 created one realised order earlier → revenue must reflect it.
+    expect(res.body.data.totals.revenue).toBeGreaterThanOrEqual(100000 * 3);
+    expect(res.body.data.totals.orders).toBeGreaterThanOrEqual(1);
+  });
+
+  it('reports: products + customers reports return real rows', async () => {
+    const prod = await request(http)
+      .get('/api/v1/reports/products?from=2000-01-01')
+      .set('Authorization', `Bearer ${t1Token}`)
+      .expect(200);
+    expect(prod.body.data.rows.some((r: any) => r.product_id === productId)).toBe(true);
+
+    const cust = await request(http).get('/api/v1/reports/customers').set('Authorization', `Bearer ${t1Token}`).expect(200);
+    expect(cust.body.data.rows.length).toBeGreaterThanOrEqual(1);
+    expect(Array.isArray(cust.body.data.by_segment)).toBe(true);
+  });
+
+  it('reports: rejects invalid date range with 400', async () => {
+    await request(http)
+      .get('/api/v1/reports/sales?from=2025-12-31&to=2025-01-01')
+      .set('Authorization', `Bearer ${t1Token}`)
+      .expect(400);
+  });
+
+  it('reports: CSV export returns a text/csv attachment with a UTF-8 BOM', async () => {
+    const res = await request(http)
+      .get('/api/v1/reports/export/sales?from=2000-01-01')
+      .set('Authorization', `Bearer ${t1Token}`)
+      .expect(200)
+      .expect('Content-Type', /text\/csv/);
+    expect(res.headers['content-disposition']).toContain('attachment');
+    expect(res.text.startsWith('﻿')).toBe(true);
+    expect(res.text).toContain('Doanh thu');
+  });
+
   it('change-password: new works, old rejected, wrong current rejected', async () => {
     const email = `pw_${rnd}@x.com`;
     await request(http).post('/api/v1/auth/register').send({ email, username: `pw_${rnd}`, password: 'OldPass1!' }).expect(201);

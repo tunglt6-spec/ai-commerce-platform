@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { Badge, Card, EmptyState, ErrorState, LoadingState } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
@@ -41,8 +41,8 @@ export default function UsersPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-gray-900">Người dùng & phân quyền</h1>
-        <p className="text-sm text-gray-500">Thành viên trong cửa hàng của bạn</p>
+        <h1 className="text-2xl font-semibold text-ink-950">Người dùng & phân quyền</h1>
+        <p className="text-sm text-ink-500">Thành viên trong cửa hàng của bạn</p>
       </div>
 
       {msg && <div className="rounded-lg bg-brand-50 px-3 py-2 text-sm text-brand-700">{msg}</div>}
@@ -58,7 +58,7 @@ export default function UsersPage() {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[640px] text-sm">
               <thead>
-                <tr className="border-b border-gray-100 text-left text-xs uppercase text-gray-400">
+                <tr className="border-b border-ink-100 text-left text-xs uppercase text-ink-400">
                   <th className="px-5 py-3 font-medium">Thành viên</th>
                   <th className="px-5 py-3 font-medium">Email</th>
                   <th className="px-5 py-3 font-medium">Quyền</th>
@@ -67,15 +67,15 @@ export default function UsersPage() {
               </thead>
               <tbody>
                 {data!.data.map((m) => (
-                  <tr key={m.user_id} className="border-b border-gray-50 last:border-0">
-                    <td className="px-5 py-3 font-medium text-gray-800">
+                  <tr key={m.user_id} className="border-b border-ink-50 last:border-0">
+                    <td className="px-5 py-3 font-medium text-ink-900">
                       {[m.first_name, m.last_name].filter(Boolean).join(' ') || m.username}
                     </td>
-                    <td className="px-5 py-3 text-gray-600">{m.email}</td>
+                    <td className="px-5 py-3 text-ink-600">{m.email}</td>
                     <td className="px-5 py-3">
                       {canAdmin ? (
                         <select
-                          className="h-9 rounded-lg border border-gray-200 bg-white px-2 text-sm"
+                          className="h-9 rounded-lg border border-ink-200 bg-white px-2 text-sm"
                           value={m.role}
                           disabled={busy === m.user_id}
                           onChange={(e) => changeRole(m.user_id, e.target.value)}
@@ -103,7 +103,7 @@ export default function UsersPage() {
         )}
       </Card>
       {!canAdmin && (
-        <p className="text-xs text-gray-400">Chỉ Admin mới đổi được quyền thành viên.</p>
+        <p className="text-xs text-ink-400">Chỉ Admin mới đổi được quyền thành viên.</p>
       )}
     </div>
   );

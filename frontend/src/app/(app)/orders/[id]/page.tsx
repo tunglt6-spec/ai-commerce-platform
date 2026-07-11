@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { Badge, Button, Card, CardBody, ErrorState, LoadingState } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
@@ -58,14 +58,14 @@ export default function OrderDetailPage() {
 
   return (
     <div className="space-y-6">
-      <Link href="/orders" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700">
+      <Link href="/orders" className="inline-flex items-center gap-1 text-sm text-ink-500 hover:text-ink-700">
         <ArrowLeft className="h-4 w-4" /> Quay lại
       </Link>
 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">{o.orderNumber}</h1>
-          <p className="text-sm text-gray-500">
+          <h1 className="text-2xl font-semibold text-ink-950">{o.orderNumber}</h1>
+          <p className="text-sm text-ink-500">
             <Badge tone={o.status}>{o.status}</Badge> · Thanh toán:{' '}
             <Badge tone={o.paymentStatus}>{o.paymentStatus}</Badge> · {formatDate(o.createdAt)}
           </p>
@@ -115,7 +115,7 @@ export default function OrderDetailPage() {
 
       {msg && <div className="rounded-lg bg-brand-50 px-3 py-2 text-sm text-brand-700">{msg}</div>}
       {followUp && (
-        <div className="rounded-lg border border-brand-100 bg-brand-50/60 px-3 py-3 text-sm text-gray-700">
+        <div className="rounded-lg border border-brand-100 bg-brand-50/60 px-3 py-3 text-sm text-ink-700">
           <p className="mb-1 text-xs font-semibold uppercase text-brand-600">Tin nhắn chăm sóc gợi ý</p>
           {followUp}
         </div>
@@ -124,11 +124,11 @@ export default function OrderDetailPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardBody>
-            <h2 className="mb-4 text-base font-semibold text-gray-800">Sản phẩm</h2>
+            <h2 className="mb-4 text-base font-semibold text-ink-900">Sản phẩm</h2>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[480px] text-sm">
                 <thead>
-                  <tr className="border-b border-gray-100 text-left text-xs uppercase text-gray-400">
+                  <tr className="border-b border-ink-100 text-left text-xs uppercase text-ink-400">
                     <th className="py-2 font-medium">Sản phẩm</th>
                     <th className="py-2 text-right font-medium">SL</th>
                     <th className="py-2 text-right font-medium">Đơn giá</th>
@@ -137,14 +137,14 @@ export default function OrderDetailPage() {
                 </thead>
                 <tbody>
                   {o.items.map((it: any) => (
-                    <tr key={it.id} className="border-b border-gray-50 last:border-0">
-                      <td className="py-2.5 text-gray-700">
+                    <tr key={it.id} className="border-b border-ink-50 last:border-0">
+                      <td className="py-2.5 text-ink-700">
                         {it.productName}
-                        {it.variantName && <span className="text-gray-400"> · {it.variantName}</span>}
+                        {it.variantName && <span className="text-ink-400"> · {it.variantName}</span>}
                       </td>
                       <td className="py-2.5 text-right">{it.quantity}</td>
                       <td className="py-2.5 text-right">{formatVND(it.unitPrice)}</td>
-                      <td className="py-2.5 text-right font-medium text-gray-900">{formatVND(it.subtotal)}</td>
+                      <td className="py-2.5 text-right font-medium text-ink-950">{formatVND(it.subtotal)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -155,15 +155,15 @@ export default function OrderDetailPage() {
 
         <Card>
           <CardBody className="space-y-2 text-sm">
-            <h2 className="mb-2 text-base font-semibold text-gray-800">Thanh toán</h2>
+            <h2 className="mb-2 text-base font-semibold text-ink-900">Thanh toán</h2>
             <Row label="Tạm tính" value={formatVND(o.subtotal)} />
             <Row label="Giảm giá" value={`- ${formatVND(o.discountAmount)}`} />
             <Row label="Vận chuyển" value={formatVND(o.shippingCost)} />
-            <div className="border-t border-gray-100 pt-2">
+            <div className="border-t border-ink-100 pt-2">
               <Row label="Tổng cộng" value={formatVND(o.totalAmount)} bold />
             </div>
             {o.trackingNumber && <Row label="Mã vận đơn" value={o.trackingNumber} />}
-            <div className="pt-2 text-xs text-gray-500">
+            <div className="pt-2 text-xs text-ink-500">
               Giao tới: {o.shippingAddress}
             </div>
           </CardBody>
@@ -173,10 +173,10 @@ export default function OrderDetailPage() {
       {o.returns?.length > 0 && (
         <Card>
           <CardBody>
-            <h2 className="mb-3 text-base font-semibold text-gray-800">Hoàn hàng</h2>
+            <h2 className="mb-3 text-base font-semibold text-ink-900">Hoàn hàng</h2>
             {o.returns.map((r: any) => (
-              <div key={r.id} className="flex items-center justify-between border-b border-gray-50 py-2 text-sm last:border-0">
-                <span className="text-gray-600">{r.reason}</span>
+              <div key={r.id} className="flex items-center justify-between border-b border-ink-50 py-2 text-sm last:border-0">
+                <span className="text-ink-600">{r.reason}</span>
                 <Badge tone={r.status === 'refunded' ? 'completed' : r.status === 'rejected' ? 'cancelled' : 'pending'}>
                   {r.status}
                 </Badge>
@@ -192,8 +192,8 @@ export default function OrderDetailPage() {
 function Row({ label, value, bold }: { label: string; value: string; bold?: boolean }) {
   return (
     <div className="flex justify-between">
-      <span className="text-gray-500">{label}</span>
-      <span className={bold ? 'font-semibold text-gray-900' : 'text-gray-700'}>{value}</span>
+      <span className="text-ink-500">{label}</span>
+      <span className={bold ? 'font-semibold text-ink-950' : 'text-ink-700'}>{value}</span>
     </div>
   );
 }

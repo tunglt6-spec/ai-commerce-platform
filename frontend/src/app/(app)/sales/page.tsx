@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { Button, Card, CardBody, EmptyState, ErrorState, Input, Label, LoadingState } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
@@ -34,8 +34,8 @@ export default function SalesPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Sales & FAQ</h1>
-          <p className="text-sm text-gray-500">Trợ lý bán hàng AI & cơ sở tri thức</p>
+          <h1 className="text-2xl font-semibold text-ink-950">Sales & FAQ</h1>
+          <p className="text-sm text-ink-500">Trợ lý bán hàng AI & cơ sở tri thức</p>
         </div>
         <Button onClick={() => setShowCreate(true)}>
           <Plus className="h-4 w-4" /> Thêm FAQ
@@ -44,7 +44,7 @@ export default function SalesPage() {
 
       <Card>
         <CardBody>
-          <h2 className="mb-3 text-base font-semibold text-gray-800">Thử Sales AI</h2>
+          <h2 className="mb-3 text-base font-semibold text-ink-900">Thử Sales AI</h2>
           <form onSubmit={ask} className="flex gap-2">
             <Input value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="Ví dụ: Có size M không? Giao mất bao lâu?" />
             <Button type="submit" loading={asking}>
@@ -60,12 +60,12 @@ export default function SalesPage() {
                   {answer.note && <div className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">{answer.note}</div>}
                   {answer.suggestions?.length ? (
                     answer.suggestions.map((s: string, i: number) => (
-                      <div key={i} className="rounded-lg border border-gray-100 bg-gray-50/60 p-3 text-sm text-gray-700">
+                      <div key={i} className="rounded-lg border border-ink-100 bg-ink-50/60 p-3 text-sm text-ink-700">
                         {s}
                       </div>
                     ))
                   ) : (
-                    <p className="text-sm text-gray-500">Không có gợi ý — hãy thêm FAQ liên quan.</p>
+                    <p className="text-sm text-ink-500">Không có gợi ý — hãy thêm FAQ liên quan.</p>
                   )}
                 </>
               )}
@@ -76,7 +76,7 @@ export default function SalesPage() {
 
       <Card>
         <CardBody>
-          <h2 className="mb-4 text-base font-semibold text-gray-800">Cơ sở tri thức (FAQ)</h2>
+          <h2 className="mb-4 text-base font-semibold text-ink-900">Cơ sở tri thức (FAQ)</h2>
           {faq.loading ? (
             <LoadingState />
           ) : faq.error ? (
@@ -86,10 +86,10 @@ export default function SalesPage() {
           ) : (
             <div className="space-y-2">
               {faq.data!.data.map((f) => (
-                <div key={f.id} className="rounded-lg border border-gray-100 p-3">
-                  <p className="text-sm font-medium text-gray-800">{f.question}</p>
-                  <p className="mt-1 text-sm text-gray-600">{f.answer}</p>
-                  <p className="mt-1 text-xs text-gray-400">{f.category}</p>
+                <div key={f.id} className="rounded-lg border border-ink-100 p-3">
+                  <p className="text-sm font-medium text-ink-900">{f.question}</p>
+                  <p className="mt-1 text-sm text-ink-600">{f.answer}</p>
+                  <p className="mt-1 text-xs text-ink-400">{f.category}</p>
                 </div>
               ))}
             </div>
@@ -127,13 +127,13 @@ function CreateFaqModal({ onClose, onCreated }: { onClose: () => void; onCreated
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
       <Card className="relative z-10 w-full max-w-lg">
         <CardBody>
-          <h2 className="mb-4 text-lg font-semibold text-gray-800">Thêm FAQ</h2>
+          <h2 className="mb-4 text-lg font-semibold text-ink-900">Thêm FAQ</h2>
           <form onSubmit={submit} className="space-y-3">
             <div>
               <Label htmlFor="cat">Danh mục</Label>
               <select
                 id="cat"
-                className="h-10 w-full rounded-lg border border-gray-200 bg-white px-3 text-sm"
+                className="h-10 w-full rounded-lg border border-ink-200 bg-white px-3 text-sm"
                 value={form.category}
                 onChange={(e) => setForm({ ...form, category: e.target.value })}
               >
@@ -152,7 +152,7 @@ function CreateFaqModal({ onClose, onCreated }: { onClose: () => void; onCreated
               <Label htmlFor="a">Trả lời</Label>
               <textarea
                 id="a"
-                className="min-h-[100px] w-full rounded-lg border border-gray-200 bg-white p-3 text-sm outline-none focus:border-brand-400 focus:ring-2 focus:ring-brand-100"
+                className="min-h-[100px] w-full rounded-lg border border-ink-200 bg-white p-3 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
                 value={form.answer}
                 onChange={(e) => setForm({ ...form, answer: e.target.value })}
                 required

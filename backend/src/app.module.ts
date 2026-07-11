@@ -33,6 +33,7 @@ import { WorkflowModule } from './modules/workflow/workflow.module';
 import { IntegrationsModule } from './modules/integrations/integrations.module';
 import { RavingFanModule } from './modules/raving-fan/raving-fan.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
+import { ReportsModule } from './modules/reports/reports.module';
 
 @Module({
   imports: [
@@ -72,6 +73,7 @@ import { UploadsModule } from './modules/uploads/uploads.module';
     IntegrationsModule,
     RavingFanModule,
     UploadsModule,
+    ReportsModule,
   ],
   providers: [
     Reflector,

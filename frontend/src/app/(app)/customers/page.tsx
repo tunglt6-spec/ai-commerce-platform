@@ -1,6 +1,6 @@
-'use client';
+﻿'use client';
 
-import { Badge, Button, Card, CardBody, EmptyState, ErrorState, LoadingState } from '@/components/ui';
+import { Badge, Button, Card, CardBody, EmptyState, ErrorState, LoadingState, PageHeader, TableWrap } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import { useApi } from '@/lib/use-api';
 import { usePermissions } from '@/lib/roles';
@@ -43,7 +43,7 @@ function RavingFanCard({ onSegmentsUpdated }: { onSegmentsUpdated: () => void })
     <Card>
       <CardBody>
         <div className="mb-2 flex items-center justify-between">
-          <h2 className="flex items-center gap-2 text-base font-semibold text-gray-800">
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-ink-950">
             <Heart className="h-4 w-4 text-brand-600" /> Raving Fan AI
           </h2>
           <Button size="sm" variant="secondary" loading={busy} disabled={!canManage} onClick={recompute}>
@@ -51,14 +51,14 @@ function RavingFanCard({ onSegmentsUpdated }: { onSegmentsUpdated: () => void })
           </Button>
         </div>
         {msg && <p className="mb-2 break-words text-xs text-brand-700">{msg}</p>}
-        <p className="text-sm text-gray-600">
-          Khách cần win-back (không mua &gt; 30 ngày):{' '}
-          <span className="font-semibold text-gray-900">{winBack.data?.data.count ?? '…'}</span>
+        <p className="text-sm text-ink-600">
+          Khách cần win-back, không mua hơn 30 ngày:{' '}
+          <span className="font-semibold text-ink-950">{winBack.data?.data.count ?? '...'}</span>
         </p>
         {(winBack.data?.data.customers.length ?? 0) > 0 && (
           <div className="mt-2 flex flex-wrap gap-2">
             {winBack.data!.data.customers.slice(0, 8).map((c) => (
-              <span key={c.id} className="rounded-full bg-amber-50 px-2.5 py-1 text-xs text-amber-700">
+              <span key={c.id} className="rounded-lg bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
                 {[c.firstName, c.lastName].filter(Boolean).join(' ') || c.phone}
               </span>
             ))}
@@ -74,10 +74,11 @@ export default function CustomersPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-gray-900">Khách hàng</h1>
-        <p className="text-sm text-gray-500">Danh sách khách hàng và giá trị vòng đời</p>
-      </div>
+      <PageHeader
+        eyebrow="Customer OS"
+        title="Khách hàng"
+        description="Quản lý hồ sơ, phân khúc và giá trị vòng đời để Sales AI chăm sóc đúng người, đúng thời điểm."
+      />
 
       <RavingFanCard onSegmentsUpdated={reload} />
 
@@ -89,37 +90,37 @@ export default function CustomersPage() {
         ) : data!.data.length === 0 ? (
           <EmptyState title="Chưa có khách hàng" />
         ) : (
-          <div className="overflow-x-auto">
+          <TableWrap>
             <table className="w-full min-w-[640px] text-sm">
               <thead>
-                <tr className="border-b border-gray-100 text-left text-xs uppercase text-gray-400">
-                  <th className="px-5 py-3 font-medium">Khách hàng</th>
-                  <th className="px-5 py-3 font-medium">Liên hệ</th>
-                  <th className="px-5 py-3 font-medium">Phân khúc</th>
-                  <th className="px-5 py-3 text-right font-medium">Số đơn</th>
+                <tr className="border-b border-ink-100 text-left text-xs uppercase tracking-[0.12em] text-ink-400">
+                  <th className="px-5 py-4 font-semibold">Khách hàng</th>
+                  <th className="px-5 py-4 font-semibold">Liên hệ</th>
+                  <th className="px-5 py-4 font-semibold">Phân khúc</th>
+                  <th className="px-5 py-4 text-right font-semibold">Số đơn</th>
                   <th className="px-5 py-3 text-right font-medium">LTV</th>
                 </tr>
               </thead>
               <tbody>
                 {data!.data.map((c) => (
-                  <tr key={c.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/60">
-                    <td className="px-5 py-3 font-medium text-gray-800">
-                      {[c.firstName, c.lastName].filter(Boolean).join(' ') || '—'}
+                  <tr key={c.id} className="border-b border-ink-100/70 last:border-0 hover:bg-brand-50/50">
+                    <td className="px-5 py-4 font-medium text-ink-900">
+                      {[c.firstName, c.lastName].filter(Boolean).join(' ') || '-'}
                     </td>
-                    <td className="px-5 py-3 text-gray-600">
+                    <td className="px-5 py-4 text-ink-600">
                       {c.phone}
-                      {c.email && <div className="text-xs text-gray-400">{c.email}</div>}
+                      {c.email && <div className="text-xs text-ink-400">{c.email}</div>}
                     </td>
-                    <td className="px-5 py-3">
+                    <td className="px-5 py-4">
                       <Badge>{c.segment ?? 'New'}</Badge>
                     </td>
-                    <td className="px-5 py-3 text-right text-gray-700">{c.totalOrders}</td>
-                    <td className="px-5 py-3 text-right font-medium text-gray-900">{formatVND(c.lifetimeValue)}</td>
+                    <td className="number px-5 py-4 text-right text-ink-700">{c.totalOrders}</td>
+                    <td className="number px-5 py-4 text-right font-medium text-ink-950">{formatVND(c.lifetimeValue)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </div>
+          </TableWrap>
         )}
       </Card>
     </div>

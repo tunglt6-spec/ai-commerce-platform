@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { Button, Card, CardBody, Input, Label } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
@@ -45,8 +45,8 @@ export default function LoginPage() {
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand-500 text-white">
             <Bot className="h-6 w-6" />
           </div>
-          <h1 className="text-xl font-semibold text-gray-800">AI Commerce Platform</h1>
-          <p className="text-sm text-gray-500">Đăng nhập vào bảng điều khiển</p>
+          <h1 className="text-xl font-semibold text-ink-900">AI Commerce Platform</h1>
+          <p className="text-sm text-ink-500">Đăng nhập vào bảng điều khiển</p>
         </div>
         <Card>
           <CardBody>
@@ -85,7 +85,7 @@ export default function LoginPage() {
             </form>
           </CardBody>
         </Card>
-        <p className="mt-4 text-center text-xs text-gray-400">
+        <p className="mt-4 text-center text-xs text-ink-400">
           Dùng tài khoản seed mặc định: admin@commerce.local
         </p>
       </div>

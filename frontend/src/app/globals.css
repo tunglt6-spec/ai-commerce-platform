@@ -3,16 +3,59 @@
 @tailwind utilities;
 
 :root {
-  --bg: #f6f7fb;
+  --bg: #f4f6f1;
+  --ink: #121815;
+  --muted: #64705f;
+  --panel: rgba(255, 255, 252, 0.86);
 }
 
 html,
 body {
   background-color: var(--bg);
-  color: #101828;
+  color: var(--ink);
   -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 * {
   box-sizing: border-box;
+}
+
+body {
+  min-height: 100dvh;
+  background:
+    radial-gradient(circle at 18% 0%, rgba(47, 143, 107, 0.13), transparent 32rem),
+    radial-gradient(circle at 88% 18%, rgba(213, 144, 43, 0.11), transparent 30rem),
+    linear-gradient(180deg, #f8faf5 0%, #eef2e9 100%);
+}
+
+body::before {
+  pointer-events: none;
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  opacity: 0.028;
+  background-image:
+    linear-gradient(0deg, rgba(18, 24, 21, 0.8) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(18, 24, 21, 0.8) 1px, transparent 1px);
+  background-size: 3px 3px;
+  mix-blend-mode: multiply;
+}
+
+::selection {
+  background: rgba(47, 143, 107, 0.22);
+}
+
+:focus-visible {
+  outline: 2px solid #2f8f6b;
+  outline-offset: 3px;
+}
+
+.number {
+  font-variant-numeric: tabular-nums;
 }

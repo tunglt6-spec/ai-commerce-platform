@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -11,5 +11,5 @@ export default function Home() {
     if (!hydrated) return;
     router.replace(accessToken ? '/dashboard' : '/login');
   }, [hydrated, accessToken, router]);
-  return <div className="flex min-h-screen items-center justify-center text-gray-400">Đang chuyển hướng…</div>;
+  return <div className="flex min-h-screen items-center justify-center text-ink-400">Đang chuyển hướng…</div>;
 }
