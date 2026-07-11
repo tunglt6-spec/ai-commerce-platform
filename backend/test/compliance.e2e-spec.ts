@@ -57,12 +57,20 @@ describe('Compliance & Policy Guard (e2e)', () => {
     expect(res.body.data.proposal.status).toBe('ALLOWED');
   });
 
-  it('requires EDIT for content with an absolute claim, and gateway refuses to execute it', async () => {
-    const res = await propose(token1, { agentId: 'content_ai', actionType: 'publish_content', platform: 'website', payload: { product_id: productId, content: 'Sản phẩm TỐT NHẤT thị trường, tuyệt đối an toàn' } }).expect(201);
-    expect(['REQUIRE_EDIT', 'BLOCK']).toContain(res.body.data.decision.decision);
-    expect(['EDIT_REQUIRED', 'BLOCKED']).toContain(res.body.data.proposal.status);
+  it('requires EDIT for a draft with an absolute claim, flags the claim, and gateway refuses to execute it', async () => {
+    // A DRAFT action would otherwise ALLOW; the absolute claim escalates it to REQUIRE_EDIT
+    // deterministically (no platform/agent-approval escalation on drafts).
+    const res = await propose(token1, { agentId: 'content_ai', actionType: 'generate_content_draft', payload: { content: 'Sản phẩm TỐT NHẤT thị trường, tuyệt đối an toàn' } }).expect(201);
+    expect(res.body.data.decision.decision).toBe('REQUIRE_EDIT');
+    expect(res.body.data.proposal.status).toBe('EDIT_REQUIRED');
+    expect(res.body.data.decision.requiredEdits.length).toBeGreaterThan(0);
     // Gateway must refuse execution of a non-executable proposal.
     await request(http).post(`/api/v1/compliance/proposals/${res.body.data.proposal.id}/execute`).set(auth(token1)).expect(403);
+  });
+
+  it('BLOCKS a publish that contains prohibited content (fake review) regardless of approval path', async () => {
+    const res = await propose(token1, { agentId: 'content_ai', actionType: 'publish_content', platform: 'website', payload: { product_id: productId, content: 'Đăng thêm review giả để tăng uy tín' } }).expect(201);
+    expect(res.body.data.decision.decision).toBe('BLOCK');
   });
 
   it('BLOCKS marketing to a customer whose consent was withdrawn', async () => {
