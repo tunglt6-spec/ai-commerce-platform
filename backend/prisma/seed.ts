@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import * as argon2 from 'argon2';
+import { seedComplianceSamples } from './seed-compliance';
 
 const prisma = new PrismaClient();
 
@@ -97,8 +98,10 @@ async function main() {
     },
   });
 
+  await seedComplianceSamples(prisma, tenant.id);
+
   // eslint-disable-next-line no-console
-  console.log(`Seed complete. Admin: ${email} / tenant: ${tenant.name} (${tenant.id})`);
+  console.log(`Seed complete. Admin: ${email} / tenant: ${tenant.name} (${tenant.id}) — compliance samples (DRAFT, NEEDS_LEGAL_REVIEW) added`);
 }
 
 main()

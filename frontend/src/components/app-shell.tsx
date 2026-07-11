@@ -13,8 +13,10 @@ import {
   Menu,
   MessagesSquare,
   Package,
+  ClipboardCheck,
   Plug,
   Rocket,
+  Scale,
   ShieldCheck,
   ShoppingCart,
   Users,
@@ -39,6 +41,8 @@ const NAV = [
   { href: '/integrations', label: 'Tích hợp', icon: Plug },
   { href: '/ai', label: 'AI Teammate', icon: Bot },
   { href: '/reports', label: 'Báo cáo', icon: BarChart3, minRole: 'manager' as const },
+  { href: '/compliance', label: 'Tuân thủ AI', icon: Scale, minRole: 'manager' as const },
+  { href: '/compliance/approvals', label: 'Phê duyệt', icon: ClipboardCheck, minRole: 'manager' as const },
   { href: '/users', label: 'Người dùng', icon: ShieldCheck, minRole: 'manager' as const },
 ];
 

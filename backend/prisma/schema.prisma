@@ -599,3 +599,424 @@ model Integration {
   @@index([tenantId])
   @@map("integrations")
 }
+
+// ==================================================================
+// AI Governance & Compliance (additive — Compliance & Policy Guard)
+// Runtime-enforced. String enums follow the existing convention.
+// All entities are tenant-scoped. Audit log is append-only (no delete API).
+// ==================================================================
+
+model CompliancePolicy {
+  id                String    @id @default(uuid()) @db.Uuid
+  tenantId          String    @map("tenant_id") @db.Uuid
+  code              String
+  name              String
+  description       String?
+  policyType        String    @map("policy_type") // LEGAL|PLATFORM|PRODUCT|DATA_PRIVACY|CONSENT|MARKETING|CONTENT|ADVERTISING|INTELLECTUAL_PROPERTY|CONSUMER_PROTECTION|AGENT_PERMISSION|EXECUTION|SECURITY|RETENTION
+  jurisdiction      String?
+  platform          String?
+  productCategory   String?   @map("product_category")
+  version           Int       @default(1)
+  status            String    @default("DRAFT") // DRAFT|UNDER_REVIEW|APPROVED|ACTIVE|SUSPENDED|EXPIRED|SUPERSEDED|ARCHIVED
+  effectiveFrom     DateTime? @map("effective_from")
+  effectiveTo       DateTime? @map("effective_to")
+  reviewDueAt       DateTime? @map("review_due_at")
+  sourceReference   String?   @map("source_reference")
+  sourceType        String?   @map("source_type") // OFFICIAL_LEGAL|PLATFORM_OFFICIAL|INTERNAL|SAMPLE
+  sourceVerifiedAt  DateTime? @map("source_verified_at")
+  ownerUserId       String?   @map("owner_user_id") @db.Uuid
+  approvalStatus    String    @default("PENDING") @map("approval_status") // PENDING|APPROVED|REJECTED
+  enforcementMode   String    @default("ADVISORY") @map("enforcement_mode") // ADVISORY|WARN|REQUIRE_APPROVAL|BLOCK
+  priority          Int       @default(100)
+  legalReviewState  String    @default("NEEDS_LEGAL_REVIEW") @map("legal_review_state") // NEEDS_LEGAL_REVIEW|LEGAL_REVIEWED|NOT_FOR_PRODUCTION
+  metadata          Json?
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  rules ComplianceRule[]
+
+  @@unique([tenantId, code, version])
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, policyType])
+  @@index([reviewDueAt])
+  @@map("compliance_policies")
+}
+
+model ComplianceRule {
+  id                        String   @id @default(uuid()) @db.Uuid
+  tenantId                  String   @map("tenant_id") @db.Uuid
+  policyId                  String   @map("policy_id") @db.Uuid
+  code                      String
+  name                      String
+  description               String?
+  ruleType                  String   @map("rule_type") // KEYWORD|CLAIM|CONSENT|EVIDENCE|PERMISSION|RISK_LIMIT|PRODUCT|ASSET|PLATFORM|DATA_SOURCE|PROHIBITED
+  conditionDefinition       Json     @map("condition_definition") // safe typed DSL (no eval)
+  decision                  String // ALLOW|ALLOW_WITH_LIMIT|REQUIRE_EDIT|REQUIRE_APPROVAL|BLOCK|ESCALATE_LEGAL_REVIEW
+  severity                  String   @default("MEDIUM") // LOW|MEDIUM|HIGH|CRITICAL
+  riskWeight                Int      @default(10) @map("risk_weight")
+  applicableActions         Json?    @map("applicable_actions")
+  applicableAgents          Json?    @map("applicable_agents")
+  applicablePlatforms       Json?    @map("applicable_platforms")
+  applicableProductCategories Json?  @map("applicable_product_categories")
+  requiresEvidence          Boolean  @default(false) @map("requires_evidence")
+  evidenceTypes             Json?    @map("evidence_types")
+  remediationInstruction    String?  @map("remediation_instruction")
+  enabled                   Boolean  @default(true)
+  testCases                 Json?    @map("test_cases")
+  createdAt                 DateTime @default(now()) @map("created_at")
+  updatedAt                 DateTime @updatedAt @map("updated_at")
+
+  policy CompliancePolicy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@index([policyId])
+  @@index([tenantId, ruleType, enabled])
+  @@map("compliance_rules")
+}
+
+model AgentPermissionProfile {
+  id                     String    @id @default(uuid()) @db.Uuid
+  tenantId               String    @map("tenant_id") @db.Uuid
+  agentType              String    @map("agent_type") // trend_hunter_ai|product_ai|content_ai|video_ai|sales_ai|fulfillment_ai|raving_fan_ai|analyze_ai
+  allowedTools           Json?     @map("allowed_tools")
+  allowedActions         Json?     @map("allowed_actions")
+  deniedActions          Json?     @map("denied_actions")
+  allowedPlatforms       Json?     @map("allowed_platforms")
+  maximumRiskLevel       Int       @default(1) @map("maximum_risk_level")
+  maximumDiscountPercent Decimal   @default(0) @map("maximum_discount_percent") @db.Decimal(5, 2)
+  maximumOrderValue      Decimal   @default(0) @map("maximum_order_value") @db.Decimal(14, 2)
+  maximumAdBudget        Decimal   @default(0) @map("maximum_ad_budget") @db.Decimal(14, 2)
+  maximumMessageBatch    Int       @default(0) @map("maximum_message_batch")
+  autoPublishAllowed     Boolean   @default(false) @map("auto_publish_allowed")
+  approvalRequiredActions Json?    @map("approval_required_actions")
+  active                 Boolean   @default(true)
+  version                Int       @default(1)
+  effectiveFrom          DateTime? @map("effective_from")
+  effectiveTo            DateTime? @map("effective_to")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+
+  @@unique([tenantId, agentType, version])
+  @@index([tenantId])
+  @@index([tenantId, agentType, active])
+  @@map("agent_permission_profiles")
+}
+
+model AgentActionProposal {
+  id                String    @id @default(uuid()) @db.Uuid
+  tenantId          String    @map("tenant_id") @db.Uuid
+  agentId           String    @map("agent_id") // agentType or agent instance id
+  actorUserId       String?   @map("actor_user_id") @db.Uuid
+  actionType        String    @map("action_type")
+  targetType        String?   @map("target_type")
+  targetId          String?   @map("target_id")
+  platform          String?
+  productCategory   String?   @map("product_category")
+  payload           Json
+  payloadHash       String    @map("payload_hash")
+  requestedAt       DateTime  @default(now()) @map("requested_at")
+  riskLevel         Int       @default(0) @map("risk_level")
+  status            String    @default("PROPOSED") // PROPOSED|EVALUATING|ALLOWED|EDIT_REQUIRED|APPROVAL_REQUIRED|APPROVED|REJECTED|BLOCKED|EXECUTING|EXECUTED|FAILED|CANCELLED|EXPIRED
+  policyDecisionId  String?   @map("policy_decision_id") @db.Uuid
+  approvalRequestId String?   @map("approval_request_id") @db.Uuid
+  idempotencyKey    String?   @map("idempotency_key")
+  expiresAt         DateTime? @map("expires_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  @@unique([tenantId, idempotencyKey])
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, agentId])
+  @@map("agent_action_proposals")
+}
+
+model PolicyDecisionRecord {
+  id               String   @id @default(uuid()) @db.Uuid
+  tenantId         String   @map("tenant_id") @db.Uuid
+  proposalId       String   @map("proposal_id") @db.Uuid
+  decision         String // ALLOW|ALLOW_WITH_LIMIT|REQUIRE_EDIT|REQUIRE_APPROVAL|BLOCK|ESCALATE_LEGAL_REVIEW
+  riskScore        Int      @map("risk_score")
+  riskLevel        Int      @map("risk_level")
+  matchedRules     Json?    @map("matched_rules")
+  failedRules      Json?    @map("failed_rules")
+  warnings         Json?
+  requiredEdits    Json?    @map("required_edits")
+  requiredEvidence Json?    @map("required_evidence")
+  limits           Json?
+  policySnapshot   Json?    @map("policy_snapshot")
+  policyVersionSet Json?    @map("policy_version_set")
+  evaluatedAt      DateTime @default(now()) @map("evaluated_at")
+  evaluatorVersion String   @map("evaluator_version")
+  expiresAt        DateTime @map("expires_at")
+  correlationId    String   @map("correlation_id")
+  payloadHash      String   @map("payload_hash")
+
+  @@index([tenantId])
+  @@index([proposalId])
+  @@index([correlationId])
+  @@map("policy_decision_records")
+}
+
+model ComplianceApprovalRequest {
+  id                     String    @id @default(uuid()) @db.Uuid
+  tenantId               String    @map("tenant_id") @db.Uuid
+  proposalId             String    @map("proposal_id") @db.Uuid
+  approvalType           String    @map("approval_type")
+  requestedBy            String?   @map("requested_by") @db.Uuid
+  assignedRole           String?   @map("assigned_role")
+  assignedUserId         String?   @map("assigned_user_id") @db.Uuid
+  status                 String    @default("PENDING") // PENDING|APPROVED|REJECTED|EXPIRED|CANCELLED
+  decisionNote           String?   @map("decision_note")
+  decidedBy              String?   @map("decided_by") @db.Uuid
+  decidedAt              DateTime? @map("decided_at")
+  expiresAt              DateTime? @map("expires_at")
+  policyDecisionSnapshot Json?     @map("policy_decision_snapshot")
+  approvedPayloadHash    String?   @map("approved_payload_hash")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([proposalId])
+  @@map("compliance_approval_requests")
+}
+
+model EvidenceRecord {
+  id                 String    @id @default(uuid()) @db.Uuid
+  tenantId           String    @map("tenant_id") @db.Uuid
+  evidenceType       String    @map("evidence_type")
+  referenceType      String?   @map("reference_type")
+  referenceId        String?   @map("reference_id")
+  title              String
+  source             String?
+  fileId             String?   @map("file_id")
+  issuer             String?
+  issuedAt           DateTime? @map("issued_at")
+  validUntil         DateTime? @map("valid_until")
+  verificationStatus String    @default("PENDING") @map("verification_status") // PENDING|VERIFIED|REJECTED|EXPIRED
+  verifiedBy         String?   @map("verified_by") @db.Uuid
+  verifiedAt         DateTime? @map("verified_at")
+  metadata           Json?
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([tenantId, evidenceType])
+  @@index([validUntil])
+  @@map("evidence_records")
+}
+
+model ConsentRecord {
+  id             String    @id @default(uuid()) @db.Uuid
+  tenantId       String    @map("tenant_id") @db.Uuid
+  customerId     String    @map("customer_id") @db.Uuid
+  channel        String // EMAIL|SMS|PHONE|ZALO|FACEBOOK|INSTAGRAM|TIKTOK|WEBSITE|CHATBOT|PUSH|OTHER
+  purpose        String // TRANSACTIONAL|CUSTOMER_SUPPORT|MARKETING|PERSONALIZATION|ANALYTICS|LOYALTY|REMARKETING
+  status         String    @default("GRANTED") // GRANTED|WITHDRAWN|EXPIRED|PENDING
+  source         String?
+  capturedAt     DateTime? @map("captured_at")
+  proofReference String?   @map("proof_reference")
+  withdrawnAt    DateTime? @map("withdrawn_at")
+  expiresAt      DateTime? @map("expires_at")
+  version        Int       @default(1)
+  metadata       Json?
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([tenantId, customerId, channel, purpose])
+  @@map("consent_records")
+}
+
+model AssetRightsRecord {
+  id                   String    @id @default(uuid()) @db.Uuid
+  tenantId             String    @map("tenant_id") @db.Uuid
+  assetId              String    @map("asset_id")
+  owner                String?
+  source               String?
+  licenseType          String?   @map("license_type")
+  commercialUseAllowed Boolean   @default(false) @map("commercial_use_allowed")
+  modificationAllowed  Boolean   @default(false) @map("modification_allowed")
+  paidAdsAllowed       Boolean   @default(false) @map("paid_ads_allowed")
+  allowedPlatforms     Json?     @map("allowed_platforms")
+  attributionRequired  Boolean   @default(false) @map("attribution_required")
+  validFrom            DateTime? @map("valid_from")
+  validUntil           DateTime? @map("valid_until")
+  proofReference       String?   @map("proof_reference")
+  verificationStatus   String    @default("PENDING") @map("verification_status") // VERIFIED|PENDING|REJECTED|EXPIRED|RESTRICTED
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([tenantId, assetId])
+  @@index([validUntil])
+  @@map("asset_rights_records")
+}
+
+model ProductComplianceProfile {
+  id                   String    @id @default(uuid()) @db.Uuid
+  tenantId             String    @map("tenant_id") @db.Uuid
+  productId            String    @map("product_id") @db.Uuid
+  category             String?
+  complianceClass      String    @default("HUMAN_REVIEW_REQUIRED") @map("compliance_class") // ALLOWED|RESTRICTED|LICENSE_REQUIRED|PLATFORM_RESTRICTED|HUMAN_REVIEW_REQUIRED|PROHIBITED
+  sellPermission       String    @default("HUMAN_REVIEW_REQUIRED") @map("sell_permission") // ALLOWED|DENIED|HUMAN_REVIEW_REQUIRED
+  advertisePermission  String    @default("HUMAN_REVIEW_REQUIRED") @map("advertise_permission") // ALLOWED|DENIED|HUMAN_REVIEW_REQUIRED
+  requiredLicenses     Json?     @map("required_licenses")
+  prohibitedPlatforms  Json?     @map("prohibited_platforms")
+  restrictedAudience   Json?     @map("restricted_audience")
+  minimumAge           Int?      @map("minimum_age")
+  warningRequirements  Json?     @map("warning_requirements")
+  claimsRestrictions   Json?     @map("claims_restrictions")
+  status               String    @default("DRAFT") // DRAFT|ACTIVE|SUSPENDED
+  reviewedAt           DateTime? @map("reviewed_at")
+  reviewedBy           String?   @map("reviewed_by") @db.Uuid
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  @@unique([tenantId, productId])
+  @@index([tenantId])
+  @@index([tenantId, complianceClass])
+  @@map("product_compliance_profiles")
+}
+
+model PlatformPolicyPack {
+  id                   String    @id @default(uuid()) @db.Uuid
+  tenantId             String    @map("tenant_id") @db.Uuid
+  platform             String
+  version              Int       @default(1)
+  effectiveFrom        DateTime? @map("effective_from")
+  reviewDueAt          DateTime? @map("review_due_at")
+  status               String    @default("DRAFT") // DRAFT|ACTIVE|OUTDATED|SUSPENDED
+  sourceReference      String?   @map("source_reference")
+  officialSource       String?   @map("official_source")
+  supportedActions     Json?     @map("supported_actions")
+  prohibitedActions    Json?     @map("prohibited_actions")
+  restrictedCategories Json?     @map("restricted_categories")
+  contentRequirements  Json?     @map("content_requirements")
+  automationLimits     Json?     @map("automation_limits")
+  rateLimitPolicy      Json?     @map("rate_limit_policy")
+  disclosureRequirements Json?   @map("disclosure_requirements")
+  lastVerifiedAt       DateTime? @map("last_verified_at")
+  verifiedBy           String?   @map("verified_by") @db.Uuid
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  @@unique([tenantId, platform, version])
+  @@index([tenantId])
+  @@index([tenantId, platform, status])
+  @@index([reviewDueAt])
+  @@map("platform_policy_packs")
+}
+
+model DataSourceRegistry {
+  id                   String    @id @default(uuid()) @db.Uuid
+  tenantId             String    @map("tenant_id") @db.Uuid
+  sourceName           String    @map("source_name")
+  owner                String?
+  accessMethod         String?   @map("access_method") // OFFICIAL_API|GRANTED_INTEGRATION|OWNED|PUBLIC_PERMITTED|OTHER
+  officialApiStatus    Boolean   @default(false) @map("official_api_status")
+  termsReference       String?   @map("terms_reference")
+  collectionPurpose    String?   @map("collection_purpose")
+  permittedFields      Json?     @map("permitted_fields")
+  prohibitedFields     Json?     @map("prohibited_fields")
+  legalBasis           String?   @map("legal_basis")
+  consentRequirement   Boolean   @default(false) @map("consent_requirement")
+  retention            String?
+  aiProcessingAllowed  Boolean   @default(false) @map("ai_processing_allowed")
+  redistributionAllowed Boolean  @default(false) @map("redistribution_allowed")
+  lastReviewedAt       DateTime? @map("last_reviewed_at")
+  riskStatus           String    @default("UNVERIFIED") @map("risk_status") // VERIFIED|UNVERIFIED|REVIEW_OVERDUE|BLOCKED
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  @@unique([tenantId, sourceName])
+  @@index([tenantId])
+  @@map("data_source_registry")
+}
+
+model ComplianceIncident {
+  id                String    @id @default(uuid()) @db.Uuid
+  tenantId          String    @map("tenant_id") @db.Uuid
+  proposalId        String?   @map("proposal_id") @db.Uuid
+  agentId           String?   @map("agent_id")
+  incidentType      String    @map("incident_type")
+  severity          String    @default("MEDIUM") // LOW|MEDIUM|HIGH|CRITICAL
+  detectedAt        DateTime  @default(now()) @map("detected_at")
+  description       String?
+  affectedPlatform  String?   @map("affected_platform")
+  affectedRecords   Json?     @map("affected_records")
+  containmentAction String?   @map("containment_action")
+  status            String    @default("OPEN") // OPEN|INVESTIGATING|CONTAINED|RESOLVED|CLOSED
+  owner             String?   @db.Uuid
+  resolvedAt        DateTime? @map("resolved_at")
+  rootCause         String?   @map("root_cause")
+  correctiveAction  String?   @map("corrective_action")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([tenantId, severity, status])
+  @@map("compliance_incidents")
+}
+
+model ComplianceKillSwitch {
+  id            String    @id @default(uuid()) @db.Uuid
+  tenantId      String    @map("tenant_id") @db.Uuid
+  scope         String // ALL_EXTERNAL|AUTO_PUBLISH|AD_LAUNCH|OUTBOUND_MARKETING|PLATFORM|AGENT|RISKY_CATEGORY|FINANCIAL|DATA_COLLECTION
+  scopeValue    String?   @map("scope_value") // platform name / agent type / category when scope is specific
+  active        Boolean   @default(false)
+  reason        String?
+  activatedBy   String?   @map("activated_by") @db.Uuid
+  effectiveFrom DateTime? @map("effective_from")
+  expiresAt     DateTime? @map("expires_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([tenantId, scope, active])
+  @@map("compliance_kill_switches")
+}
+
+model ComplianceExecutionReceipt {
+  id                 String   @id @default(uuid()) @db.Uuid
+  tenantId           String   @map("tenant_id") @db.Uuid
+  proposalId         String   @map("proposal_id") @db.Uuid
+  actionType         String   @map("action_type")
+  platform           String?
+  externalReference  String?  @map("external_reference")
+  result             String // SUCCESS|FAILED
+  responseRedacted   Json?    @map("response_redacted")
+  correlationId      String   @map("correlation_id")
+  executedAt         DateTime @default(now()) @map("executed_at")
+
+  @@index([tenantId])
+  @@index([proposalId])
+  @@map("compliance_execution_receipts")
+}
+
+model ImmutableComplianceAuditLog {
+  id               String   @id @default(uuid()) @db.Uuid
+  tenantId         String   @map("tenant_id") @db.Uuid
+  actorType        String   @map("actor_type") // USER|AGENT|SYSTEM
+  actorId          String?  @map("actor_id")
+  agentId          String?  @map("agent_id")
+  action           String
+  entityType       String?  @map("entity_type")
+  entityId         String?  @map("entity_id")
+  beforeHash       String?  @map("before_hash")
+  afterHash        String?  @map("after_hash")
+  policyDecisionId String?  @map("policy_decision_id") @db.Uuid
+  approvalId       String?  @map("approval_id") @db.Uuid
+  result           String?
+  timestamp        DateTime @default(now())
+  correlationId    String?  @map("correlation_id")
+  metadata         Json?
+
+  @@index([tenantId])
+  @@index([tenantId, timestamp])
+  @@index([correlationId])
+  @@map("immutable_compliance_audit_logs")
+}
