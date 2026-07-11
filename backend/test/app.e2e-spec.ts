@@ -167,6 +167,17 @@ describe('AI Commerce Platform (e2e)', () => {
     expect(Array.isArray(res.body.data.rising_categories)).toBe(true);
   });
 
+  it('ai tasks: filter by agent + status passes whitelist and scopes correctly', async () => {
+    const res = await request(http)
+      .get('/api/v1/ai/tasks?agent=trend_hunter_ai&status=completed&limit=10')
+      .set('Authorization', `Bearer ${t1Token}`)
+      .expect(200);
+    expect(Array.isArray(res.body.data)).toBe(true);
+    // The trend-hunter analyze test above logged a completed trend_hunter_ai task.
+    expect(res.body.data.length).toBeGreaterThanOrEqual(1);
+    expect(res.body.data.every((t: any) => t.agentName === 'trend_hunter_ai')).toBe(true);
+  });
+
   it('lists tenant members (users/roles screen backend)', async () => {
     const res = await request(http).get('/api/v1/users').set('Authorization', `Bearer ${t1Token}`).expect(200);
     expect(res.body.data.length).toBeGreaterThanOrEqual(1);

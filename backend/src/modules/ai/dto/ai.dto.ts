@@ -1,4 +1,17 @@
 import { IsBoolean, IsIn, IsInt, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
+import { PaginationDto } from '../../../common/dto/pagination.dto';
+
+/** Query for listing AI tasks: pagination + optional agent/status filters.
+ *  Extends PaginationDto so `agent`/`status` pass the global whitelist validation. */
+export class ListAiTasksDto extends PaginationDto {
+  @IsOptional()
+  @IsString()
+  agent?: string;
+
+  @IsOptional()
+  @IsString()
+  status?: string;
+}
 
 export class GenerateDescriptionDto {
   @IsUUID()

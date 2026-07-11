@@ -4,7 +4,6 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { ROLES } from '../../common/constants/roles';
 import { AuthenticatedUser } from '../../common/types/authenticated-user';
-import { PaginationDto } from '../../common/dto/pagination.dto';
 import { AiService } from './ai.service';
 import { AiGatewayService } from './gateway/ai-gateway.service';
 import { ScoringService } from './agents/scoring.service';
@@ -17,6 +16,7 @@ import {
   GenerateDescriptionDto,
   GenerateVideoPlanDto,
   GenerateVideoScriptDto,
+  ListAiTasksDto,
 } from './dto/ai.dto';
 import { NotFoundException } from '@nestjs/common';
 
@@ -235,13 +235,8 @@ export class AiController {
   }
 
   @Get('tasks')
-  async listTasks(
-    @CurrentUser('tenantId') tenantId: string,
-    @Query() query: PaginationDto,
-    @Query('agent') agent?: string,
-    @Query('status') status?: string,
-  ) {
-    const result = await this.ai.listTasks(tenantId, query, agent, status);
+  async listTasks(@CurrentUser('tenantId') tenantId: string, @Query() query: ListAiTasksDto) {
+    const result = await this.ai.listTasks(tenantId, query, query.agent, query.status);
     return { success: true, ...result };
   }
 
