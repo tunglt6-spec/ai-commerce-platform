@@ -158,7 +158,7 @@ function CreateProductModal({ onClose, onCreated }: { onClose: () => void; onCre
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
+      <div className="absolute inset-0 bg-ink-950/50 backdrop-blur-sm" onClick={onClose} />
       <Card className="relative z-10 w-full max-w-lg">
         <CardBody>
           <h2 className="mb-4 text-lg font-semibold text-ink-900">Thêm sản phẩm</h2>
@@ -229,7 +229,7 @@ function CreateProductModal({ onClose, onCreated }: { onClose: () => void; onCre
                 <img src={form.primary_image_url} alt="preview" className="mt-2 h-20 w-20 rounded-lg object-cover" />
               )}
             </div>
-            {err && <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+            {err && <div className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{err}</div>}
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="secondary" type="button" onClick={onClose}>
                 Hủy

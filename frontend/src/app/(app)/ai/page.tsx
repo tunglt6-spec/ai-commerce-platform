@@ -1,10 +1,13 @@
-﻿'use client';
+'use client';
 
-import { Badge, Button, Card, CardBody, EmptyState, ErrorState, LoadingState } from '@/components/ui';
+import { Badge, Button, Card, CardBody, EmptyState, ErrorState, LoadingState, PageHeader, StatCard, TableWrap } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
+import { AGENTS, agentMeta } from '@/lib/agents';
 import { useApi } from '@/lib/use-api';
 import { formatDate, formatNumber } from '@/lib/utils';
-import { Bot, LineChart } from 'lucide-react';
+import { Bot, ChevronRight, Coins, Cpu, LineChart, ListChecks } from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 function AnalyzeInsights() {
@@ -27,18 +30,18 @@ function AnalyzeInsights() {
   return (
     <Card>
       <CardBody>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="flex items-center gap-2 text-base font-semibold text-ink-900">
-            <LineChart className="h-4 w-4 text-brand-600" /> Analyze AI — nhận định
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-ink-950">
+            <LineChart className="h-5 w-5 text-brand-600" /> Analyze AI — nhận định
           </h2>
           <Button size="sm" variant="secondary" loading={loading} onClick={run}>
             Phân tích 30 ngày
           </Button>
         </div>
         {!result ? (
-          <p className="text-sm text-ink-400">Nhấn “Phân tích” để tạo nhận định từ dữ liệu thật.</p>
+          <p className="text-sm text-ink-500">Nhấn “Phân tích 30 ngày” để tạo nhận định từ dữ liệu thật.</p>
         ) : result.error ? (
-          <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{result.error}</div>
+          <div className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{result.error}</div>
         ) : (
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -53,7 +56,7 @@ function AnalyzeInsights() {
               ))}
             </ul>
             {result.narrative && (
-              <div className="rounded-lg border border-ink-100 bg-ink-50/60 p-3 text-sm text-ink-700 whitespace-pre-line">
+              <div className="whitespace-pre-line rounded-2xl border border-ink-100 bg-ink-50/60 p-4 text-sm text-ink-700">
                 {result.narrative}
               </div>
             )}
@@ -66,23 +69,12 @@ function AnalyzeInsights() {
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg bg-ink-50 p-3">
+    <div className="rounded-2xl bg-ink-50 p-3">
       <p className="text-xs text-ink-500">{label}</p>
-      <p className="text-sm font-semibold text-ink-950">{value}</p>
+      <p className="number text-sm font-semibold text-ink-950">{value}</p>
     </div>
   );
 }
-
-const AGENTS = [
-  { key: 'trend_hunter', name: 'Trend Hunter AI', desc: 'Phát hiện xu hướng & cơ hội' },
-  { key: 'product_ai', name: 'Product AI', desc: 'Chấm điểm sản phẩm' },
-  { key: 'content_ai', name: 'Content AI', desc: 'Mô tả, caption, SEO' },
-  { key: 'video_ai', name: 'Video AI', desc: 'Kịch bản & shot list' },
-  { key: 'sales_ai', name: 'Sales AI', desc: 'Tư vấn & chốt đơn' },
-  { key: 'fulfillment_ai', name: 'Fulfillment AI', desc: 'Xử lý & giao hàng' },
-  { key: 'raving_fan', name: 'Raving Fan AI', desc: 'Chăm sóc sau bán' },
-  { key: 'analyze_ai', name: 'Analyze AI', desc: 'Phân tích & tối ưu' },
-];
 
 interface Task {
   id: string;
@@ -94,59 +86,64 @@ interface Task {
   createdAt: string;
 }
 
+function statusTone(status: string): string {
+  if (status === 'completed' || status === 'approved') return 'completed';
+  if (status === 'failed' || status === 'rejected') return 'cancelled';
+  if (status === 'awaiting_approval') return 'pending';
+  return 'pending';
+}
+
 export default function AiPage() {
+  const router = useRouter();
   const { data: tasks, loading, error, reload } = useApi<{ data: Task[] }>('/ai/tasks?limit=30');
   const { data: cost } = useApi<{ data: any }>('/ai/cost/summary?days=30');
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-ink-950">AI Teammate</h1>
-        <p className="text-sm text-ink-500">Đội ngũ AI vận hành & lịch sử tác vụ</p>
+      <PageHeader
+        eyebrow="AI Operations"
+        title="AI Teammate"
+        description="Đội ngũ 8 agent AI vận hành cửa hàng — theo dõi chi phí, token và toàn bộ lịch sử tác vụ minh bạch."
+      />
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <StatCard icon={Coins} label="Chi phí AI (30 ngày)" value={`$${(cost?.data?.total_cost ?? 0).toFixed(4)}`} />
+        <StatCard icon={Cpu} label="Tổng token" value={formatNumber(cost?.data?.total_tokens ?? 0)} tone="amber" />
+        <StatCard icon={ListChecks} label="Số tác vụ" value={formatNumber(cost?.data?.task_count ?? 0)} tone="blue" />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {AGENTS.map((a) => (
-          <Card key={a.key}>
-            <CardBody className="flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
-                <Bot className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-ink-900">{a.name}</p>
-                <p className="text-xs text-ink-500">{a.desc}</p>
-              </div>
-            </CardBody>
-          </Card>
-        ))}
+      <div>
+        <h2 className="mb-3 text-lg font-semibold text-ink-950">Đội ngũ AI</h2>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {AGENTS.map((a) => {
+            const Icon = a.icon;
+            return (
+              <Link key={a.key} href={`/ai/${a.key}`}>
+                <Card className="group h-full transition duration-200 hover:-translate-y-0.5 hover:shadow-panel">
+                  <CardBody className="flex items-start gap-3">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-brand-600">
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="flex items-center justify-between text-sm font-semibold text-ink-900">
+                        <span className="truncate">{a.name}</span>
+                        <ChevronRight className="h-4 w-4 shrink-0 text-ink-300 transition group-hover:text-brand-600" />
+                      </p>
+                      <p className="text-xs text-ink-500">{a.desc}</p>
+                    </div>
+                  </CardBody>
+                </Card>
+              </Link>
+            );
+          })}
+        </div>
       </div>
 
       <AnalyzeInsights />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Card>
-          <CardBody>
-            <p className="text-sm text-ink-500">Chi phí AI (30 ngày)</p>
-            <p className="text-2xl font-semibold text-ink-950">${(cost?.data?.total_cost ?? 0).toFixed(4)}</p>
-          </CardBody>
-        </Card>
-        <Card>
-          <CardBody>
-            <p className="text-sm text-ink-500">Tổng token</p>
-            <p className="text-2xl font-semibold text-ink-950">{formatNumber(cost?.data?.total_tokens ?? 0)}</p>
-          </CardBody>
-        </Card>
-        <Card>
-          <CardBody>
-            <p className="text-sm text-ink-500">Số tác vụ</p>
-            <p className="text-2xl font-semibold text-ink-950">{formatNumber(cost?.data?.task_count ?? 0)}</p>
-          </CardBody>
-        </Card>
-      </div>
-
       <Card>
         <CardBody>
-          <h2 className="mb-4 text-base font-semibold text-ink-900">Lịch sử tác vụ AI</h2>
+          <h2 className="mb-4 text-lg font-semibold text-ink-950">Lịch sử tác vụ AI</h2>
           {loading ? (
             <LoadingState />
           ) : error ? (
@@ -154,36 +151,38 @@ export default function AiPage() {
           ) : tasks!.data.length === 0 ? (
             <EmptyState title="Chưa có tác vụ AI" hint="Chạy chấm điểm hoặc tạo nội dung ở trang sản phẩm" />
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[640px] text-sm">
+            <TableWrap>
+              <table className="w-full min-w-[720px] text-sm">
                 <thead>
-                  <tr className="border-b border-ink-100 text-left text-xs uppercase text-ink-400">
-                    <th className="py-2 font-medium">Agent</th>
-                    <th className="py-2 font-medium">Tác vụ</th>
-                    <th className="py-2 font-medium">Model</th>
-                    <th className="py-2 text-right font-medium">Token</th>
-                    <th className="py-2 font-medium">Trạng thái</th>
-                    <th className="py-2 font-medium">Thời gian</th>
+                  <tr className="border-b border-ink-100 text-left">
+                    <th className="px-5 py-4 text-xs font-semibold uppercase tracking-[0.12em] text-ink-400">Agent</th>
+                    <th className="px-5 py-4 text-xs font-semibold uppercase tracking-[0.12em] text-ink-400">Tác vụ</th>
+                    <th className="px-5 py-4 text-xs font-semibold uppercase tracking-[0.12em] text-ink-400">Model</th>
+                    <th className="px-5 py-4 text-right text-xs font-semibold uppercase tracking-[0.12em] text-ink-400">Token</th>
+                    <th className="px-5 py-4 text-xs font-semibold uppercase tracking-[0.12em] text-ink-400">Trạng thái</th>
+                    <th className="px-5 py-4 text-xs font-semibold uppercase tracking-[0.12em] text-ink-400">Thời gian</th>
                   </tr>
                 </thead>
                 <tbody>
                   {tasks!.data.map((t) => (
-                    <tr key={t.id} className="border-b border-ink-50 last:border-0">
-                      <td className="py-2.5 font-medium text-ink-700">{t.agentName}</td>
-                      <td className="py-2.5 text-ink-600">{t.taskType}</td>
-                      <td className="py-2.5 text-ink-500">{t.modelUsed ?? '-'}</td>
-                      <td className="py-2.5 text-right text-ink-600">{formatNumber(t.tokensUsed ?? 0)}</td>
-                      <td className="py-2.5">
-                        <Badge tone={t.status === 'completed' ? 'completed' : t.status === 'failed' ? 'cancelled' : 'pending'}>
-                          {t.status}
-                        </Badge>
+                    <tr
+                      key={t.id}
+                      onClick={() => router.push(`/ai/tasks/${t.id}`)}
+                      className="cursor-pointer border-b border-ink-100/70 last:border-0 hover:bg-brand-50/50"
+                    >
+                      <td className="px-5 py-3.5 font-semibold text-ink-800">{agentMeta(t.agentName).name}</td>
+                      <td className="px-5 py-3.5 text-ink-600">{t.taskType}</td>
+                      <td className="px-5 py-3.5 text-ink-500">{t.modelUsed ?? '—'}</td>
+                      <td className="number px-5 py-3.5 text-right text-ink-600">{formatNumber(t.tokensUsed ?? 0)}</td>
+                      <td className="px-5 py-3.5">
+                        <Badge tone={statusTone(t.status)}>{t.status}</Badge>
                       </td>
-                      <td className="py-2.5 text-ink-500">{formatDate(t.createdAt)}</td>
+                      <td className="px-5 py-3.5 text-ink-500">{formatDate(t.createdAt)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-            </div>
+            </TableWrap>
           )}
         </CardBody>
       </Card>

@@ -215,6 +215,26 @@ describe('AI Commerce Platform (e2e)', () => {
     expect(res.text).toContain('Doanh thu');
   });
 
+  it('tenant profile: reads and updates own store profile', async () => {
+    const me = await request(http).get('/api/v1/tenant/me').set('Authorization', `Bearer ${t1Token}`).expect(200);
+    expect(me.body.data.name).toBeDefined();
+    expect(me.body.data.slug).toBeDefined();
+
+    const newName = `E2E Store ${rnd}`;
+    const upd = await request(http)
+      .patch('/api/v1/tenant/me')
+      .set('Authorization', `Bearer ${t1Token}`)
+      .send({ name: newName, description: 'Cửa hàng test' })
+      .expect(200);
+    expect(upd.body.data.name).toBe(newName);
+    expect(upd.body.data.description).toBe('Cửa hàng test');
+  });
+
+  it('ai status: reports whether an AI provider is configured', async () => {
+    const res = await request(http).get('/api/v1/ai/status').set('Authorization', `Bearer ${t1Token}`).expect(200);
+    expect(typeof res.body.data.configured).toBe('boolean');
+  });
+
   it('change-password: new works, old rejected, wrong current rejected', async () => {
     const email = `pw_${rnd}@x.com`;
     await request(http).post('/api/v1/auth/register').send({ email, username: `pw_${rnd}`, password: 'OldPass1!' }).expect(201);

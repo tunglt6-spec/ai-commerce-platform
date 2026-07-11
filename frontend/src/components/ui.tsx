@@ -23,7 +23,7 @@ export function Button({
     primary: 'bg-ink-900 text-white shadow-[0_10px_24px_rgba(18,24,21,.18)] hover:bg-brand-800',
     secondary: 'border border-ink-200 bg-white/80 text-ink-800 hover:border-brand-300 hover:bg-brand-50',
     ghost: 'bg-transparent text-ink-600 hover:bg-ink-100 hover:text-ink-900',
-    danger: 'bg-signal-rose text-white hover:bg-red-700',
+    danger: 'bg-signal-rose text-white hover:bg-rose-700',
   };
   const sizes = { sm: 'h-8 px-3 text-xs', md: 'h-10 px-4 text-sm' };
   return (

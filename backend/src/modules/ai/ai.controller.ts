@@ -6,6 +6,7 @@ import { ROLES } from '../../common/constants/roles';
 import { AuthenticatedUser } from '../../common/types/authenticated-user';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { AiService } from './ai.service';
+import { AiGatewayService } from './gateway/ai-gateway.service';
 import { ScoringService } from './agents/scoring.service';
 import { ContentAgentService } from './agents/content.service';
 import { VideoAgentService } from './agents/video.service';
@@ -28,7 +29,13 @@ export class AiController {
     private readonly content: ContentAgentService,
     private readonly video: VideoAgentService,
     private readonly trendHunter: TrendHunterService,
+    private readonly gateway: AiGatewayService,
   ) {}
+
+  @Get('status')
+  aiStatus() {
+    return { success: true, data: { configured: this.gateway.isConfigured } };
+  }
 
   private async loadProduct(tenantId: string, productId: string) {
     const product = await this.prisma.product.findFirst({

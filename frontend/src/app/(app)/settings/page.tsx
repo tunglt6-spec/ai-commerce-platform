@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { Button, Card, CardBody, Input, Label } from '@/components/ui';
+import { Button, Card, CardBody, Input, Label, PageHeader } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import { useAuth } from '@/store/auth';
 import { useRouter } from 'next/navigation';
@@ -42,16 +42,18 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-ink-950">Cài đặt</h1>
-        <p className="text-sm text-ink-500">Tài khoản: {user?.email}</p>
-      </div>
+      <PageHeader
+        eyebrow="Account"
+        title="Cài đặt tài khoản"
+        description="Đổi mật khẩu và quản lý thông tin đăng nhập của bạn."
+      />
 
-      <Card className="max-w-lg">
+      <Card className="max-w-xl">
         <CardBody>
-          <h2 className="mb-4 text-base font-semibold text-ink-900">Đổi mật khẩu</h2>
+          <h2 className="text-lg font-semibold text-ink-950">Đổi mật khẩu</h2>
+          <p className="mb-4 text-sm text-ink-500">Tài khoản: {user?.email}</p>
           {done ? (
-            <div className="rounded-lg bg-green-50 px-3 py-3 text-sm text-green-700">
+            <div className="rounded-2xl bg-brand-50 px-4 py-3 text-sm text-brand-700">
               Đổi mật khẩu thành công. Đang đăng xuất để đăng nhập lại…
             </div>
           ) : (
@@ -93,7 +95,7 @@ export default function SettingsPage() {
                 />
               </div>
               {error && (
-                <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
+                <div className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>
               )}
               <Button type="submit" loading={saving}>
                 Đổi mật khẩu

@@ -34,6 +34,7 @@ import { IntegrationsModule } from './modules/integrations/integrations.module';
 import { RavingFanModule } from './modules/raving-fan/raving-fan.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
 import { ReportsModule } from './modules/reports/reports.module';
+import { TenantModule } from './modules/tenant/tenant.module';
 
 @Module({
   imports: [
@@ -74,6 +75,7 @@ import { ReportsModule } from './modules/reports/reports.module';
     RavingFanModule,
     UploadsModule,
     ReportsModule,
+    TenantModule,
   ],
   providers: [
     Reflector,

@@ -14,6 +14,7 @@ import {
   MessagesSquare,
   Package,
   Plug,
+  Rocket,
   ShieldCheck,
   ShoppingCart,
   Users,
@@ -28,6 +29,7 @@ import { api } from '@/lib/api';
 
 const NAV = [
   { href: '/dashboard', label: 'Tổng quan', icon: LayoutDashboard },
+  { href: '/onboarding', label: 'Bắt đầu', icon: Rocket },
   { href: '/products', label: 'Sản phẩm', icon: Package },
   { href: '/orders', label: 'Đơn hàng', icon: ShoppingCart },
   { href: '/customers', label: 'Khách hàng', icon: Users },

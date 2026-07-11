@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { Badge, Card, EmptyState, ErrorState, LoadingState } from '@/components/ui';
+import { Badge, Card, EmptyState, ErrorState, LoadingState, PageHeader, TableWrap } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import { useApi } from '@/lib/use-api';
 import { usePermissions } from '@/lib/roles';
@@ -40,12 +40,18 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-ink-950">Người dùng & phân quyền</h1>
-        <p className="text-sm text-ink-500">Thành viên trong cửa hàng của bạn</p>
-      </div>
+      <PageHeader
+        eyebrow="Access Control"
+        title="Người dùng & phân quyền"
+        description="Quản lý thành viên và phân quyền theo vai trò trong cửa hàng của bạn."
+      />
 
-      {msg && <div className="rounded-lg bg-brand-50 px-3 py-2 text-sm text-brand-700">{msg}</div>}
+      {msg &&
+        (msg === 'Đã cập nhật quyền.' ? (
+          <div className="rounded-2xl bg-brand-50 px-4 py-3 text-sm text-brand-700">{msg}</div>
+        ) : (
+          <div className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{msg}</div>
+        ))}
 
       <Card>
         {loading ? (
@@ -55,27 +61,30 @@ export default function UsersPage() {
         ) : data!.data.length === 0 ? (
           <EmptyState title="Chưa có thành viên" />
         ) : (
-          <div className="overflow-x-auto">
+          <TableWrap>
             <table className="w-full min-w-[640px] text-sm">
               <thead>
-                <tr className="border-b border-ink-100 text-left text-xs uppercase text-ink-400">
-                  <th className="px-5 py-3 font-medium">Thành viên</th>
-                  <th className="px-5 py-3 font-medium">Email</th>
-                  <th className="px-5 py-3 font-medium">Quyền</th>
-                  <th className="px-5 py-3 font-medium">Trạng thái</th>
+                <tr className="border-b border-ink-100 text-left">
+                  <th className="px-5 py-4 text-xs font-semibold uppercase tracking-[0.12em] text-ink-400">Thành viên</th>
+                  <th className="px-5 py-4 text-xs font-semibold uppercase tracking-[0.12em] text-ink-400">Email</th>
+                  <th className="px-5 py-4 text-xs font-semibold uppercase tracking-[0.12em] text-ink-400">Quyền</th>
+                  <th className="px-5 py-4 text-xs font-semibold uppercase tracking-[0.12em] text-ink-400">Trạng thái</th>
                 </tr>
               </thead>
               <tbody>
                 {data!.data.map((m) => (
-                  <tr key={m.user_id} className="border-b border-ink-50 last:border-0">
-                    <td className="px-5 py-3 font-medium text-ink-900">
+                  <tr
+                    key={m.user_id}
+                    className="border-b border-ink-100/70 last:border-0 hover:bg-brand-50/50"
+                  >
+                    <td className="px-5 py-3.5 font-medium text-ink-900">
                       {[m.first_name, m.last_name].filter(Boolean).join(' ') || m.username}
                     </td>
-                    <td className="px-5 py-3 text-ink-600">{m.email}</td>
-                    <td className="px-5 py-3">
+                    <td className="px-5 py-3.5 text-ink-600">{m.email}</td>
+                    <td className="px-5 py-3.5">
                       {canAdmin ? (
                         <select
-                          className="h-9 rounded-lg border border-ink-200 bg-white px-2 text-sm"
+                          className="h-9 rounded-xl border border-ink-200 bg-white/85 px-2 text-sm text-ink-900 outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-100"
                           value={m.role}
                           disabled={busy === m.user_id}
                           onChange={(e) => changeRole(m.user_id, e.target.value)}
@@ -90,7 +99,7 @@ export default function UsersPage() {
                         <Badge>{m.role}</Badge>
                       )}
                     </td>
-                    <td className="px-5 py-3">
+                    <td className="px-5 py-3.5">
                       <Badge tone={m.is_active ? 'active' : 'archived'}>
                         {m.is_active ? 'active' : 'inactive'}
                       </Badge>
@@ -99,7 +108,7 @@ export default function UsersPage() {
                 ))}
               </tbody>
             </table>
-          </div>
+          </TableWrap>
         )}
       </Card>
       {!canAdmin && (

@@ -186,7 +186,7 @@ export default function ProductDetailPage() {
           <CardBody>
             <h2 className="mb-3 text-base font-semibold text-ink-900">Nội dung do Content AI tạo</h2>
             {content.error ? (
-              <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{content.error}</div>
+              <div className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{content.error}</div>
             ) : content.provider_configured === false ? (
               <div className="rounded-lg bg-amber-50 px-3 py-3 text-sm text-amber-800">
                 <p className="font-medium">AI provider chưa được cấu hình</p>
@@ -215,7 +215,7 @@ export default function ProductDetailPage() {
               Kế hoạch video {videoPlan.is_template ? '(mẫu)' : '(AI)'}
             </h2>
             {videoPlan.error ? (
-              <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{videoPlan.error}</div>
+              <div className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{videoPlan.error}</div>
             ) : videoPlan.note && videoPlan.scenes?.length === 0 ? (
               <div className="whitespace-pre-line rounded-lg border border-ink-100 bg-ink-50/60 p-3 text-sm text-ink-700">
                 {videoPlan.note}

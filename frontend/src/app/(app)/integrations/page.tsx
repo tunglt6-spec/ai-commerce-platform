@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import { Badge, Button, Card, CardBody, ErrorState, Input, Label, LoadingState } from '@/components/ui';
+import { Badge, Button, Card, CardBody, ErrorState, Input, Label, LoadingState, PageHeader } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import { useApi } from '@/lib/use-api';
 import { usePermissions } from '@/lib/roles';
@@ -53,12 +53,13 @@ export default function IntegrationsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-ink-950">Tích hợp</h1>
-        <p className="text-sm text-ink-500">Kết nối kênh bán, thanh toán & vận chuyển</p>
-      </div>
+      <PageHeader
+        eyebrow="Integrations"
+        title="Tích hợp"
+        description="Kết nối kênh bán, thanh toán và vận chuyển với bảo mật khoá được mã hoá."
+      />
 
-      {msg && <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{msg}</div>}
+      {msg && <div className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{msg}</div>}
 
       {loading ? (
         <LoadingState />
@@ -71,19 +72,19 @@ export default function IntegrationsPage() {
               <CardBody>
                 <div className="mb-3 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-ink-100 text-ink-600">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-ink-100 text-ink-600">
                       <Plug className="h-4 w-4" />
                     </div>
                     <div>
-                      <p className="text-sm font-semibold text-ink-900">{it.label}</p>
-                      <p className="text-xs capitalize text-ink-400">{it.kind}</p>
+                      <p className="text-sm font-semibold text-ink-950">{it.label}</p>
+                      <p className="text-xs capitalize text-ink-500">{it.kind}</p>
                     </div>
                   </div>
                   <Badge tone={STATUS_TONE[it.status]}>{it.status.replace('_', ' ')}</Badge>
                 </div>
-                {it.last_error && <p className="mb-2 text-xs text-red-600">{it.last_error}</p>}
+                {it.last_error && <p className="mb-2 text-xs text-rose-600">{it.last_error}</p>}
                 {!canAdmin ? (
-                  <p className="text-xs text-ink-400">Chỉ Admin mới cấu hình tích hợp.</p>
+                  <p className="text-xs text-ink-500">Chỉ Admin mới cấu hình tích hợp.</p>
                 ) : (
                 <div className="flex gap-2">
                   {it.status === 'connected' || it.status === 'error' || it.status === 'disabled' ? (
@@ -156,11 +157,11 @@ function ConnectModal({ provider, onClose, onConnected }: { provider: string; on
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <Card className="relative z-10 w-full max-w-md">
+      <div className="absolute inset-0 bg-ink-950/50 backdrop-blur-sm" onClick={onClose} />
+      <Card className="relative z-10 w-full max-w-lg">
         <CardBody>
-          <h2 className="mb-1 text-lg font-semibold capitalize text-ink-900">Kết nối {provider}</h2>
-          <p className="mb-4 text-xs text-ink-500">
+          <h2 className="mb-1 text-lg font-semibold capitalize text-ink-950">Kết nối {provider}</h2>
+          <p className="mb-4 text-sm text-ink-500">
             Khoá API được lưu dưới dạng tham chiếu không thể đảo ngược — không hiển thị lại và không ghi vào log.
           </p>
           <form onSubmit={submit} className="space-y-3">
@@ -176,7 +177,7 @@ function ConnectModal({ provider, onClose, onConnected }: { provider: string; on
               <Label htmlFor="wu">Webhook URL (tuỳ chọn)</Label>
               <Input id="wu" placeholder="https://your-endpoint/webhook" value={webhookUrl} onChange={(e) => setWebhookUrl(e.target.value)} />
             </div>
-            {err && <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>}
+            {err && <div className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{err}</div>}
             <div className="flex justify-end gap-2">
               <Button type="button" variant="secondary" onClick={onClose}>
                 Hủy
