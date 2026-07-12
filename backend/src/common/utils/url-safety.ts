@@ -1,5 +1,6 @@
 import { lookup } from 'dns/promises';
 import { isIP } from 'net';
+import ipaddr from 'ipaddr.js';
 
 /**
  * SSRF guard for server-side fetches of externally/tenant-supplied URLs
@@ -24,45 +25,36 @@ const BLOCKED_HOSTNAMES = new Set([
   'metadata.goog',
 ]);
 
-/** True if an IPv4/IPv6 literal is loopback / private / link-local / ULA / metadata. */
+// 198.18.0.0/15 (RFC 2544 benchmarking) — ipaddr.js 1.9.x reports it as unicast, so
+// we block it explicitly in addition to ipaddr's own special-range classification.
+const BENCHMARK_V4 = ipaddr.IPv4.parseCIDR('198.18.0.0/15');
+
+function v4NonPublic(a: ipaddr.IPv4): boolean {
+  return a.range() !== 'unicast' || a.match(BENCHMARK_V4);
+}
+
+/**
+ * True unless the address is ordinary public unicast. Uses ipaddr.js for robust,
+ * spec-correct classification across ALL IPv4/IPv6 forms (compressed, uncompressed,
+ * IPv4-mapped AND IPv4-compatible, hex). Anything that is not public unicast (loopback,
+ * private, link-local incl. cloud metadata 169.254.169.254, ULA, CGNAT, reserved,
+ * benchmarking, multicast, teredo/6to4, …) or does not parse is treated as unsafe.
+ */
 export function isPrivateAddress(ip: string): boolean {
-  const v = isIP(ip);
-  if (v === 4) {
-    const p = ip.split('.').map(Number);
-    if (p.length !== 4 || p.some((n) => Number.isNaN(n))) return true; // treat unparseable as unsafe
-    const [a, b] = p;
-    if (a === 10) return true; // 10.0.0.0/8
-    if (a === 127) return true; // loopback
-    if (a === 0) return true; // 0.0.0.0/8
-    if (a === 169 && b === 254) return true; // link-local + 169.254.169.254 metadata
-    if (a === 172 && b >= 16 && b <= 31) return true; // 172.16.0.0/12
-    if (a === 192 && b === 168) return true; // 192.168.0.0/16
-    if (a === 192 && b === 0 && p[2] === 0) return true; // 192.0.0.0/24 IETF protocol assignments
-    if (a === 192 && b === 88 && p[2] === 99) return true; // 192.88.99.0/24 6to4 relay anycast
-    if (a === 198 && (b === 18 || b === 19)) return true; // 198.18.0.0/15 benchmarking
-    if (a === 100 && b >= 64 && b <= 127) return true; // 100.64.0.0/10 CGNAT
-    if (a >= 224) return true; // multicast / reserved
-    return false;
+  if (!ipaddr.isValid(ip)) return true; // unparseable → unsafe
+  const addr = ipaddr.parse(ip);
+  if (addr.kind() === 'ipv4') return v4NonPublic(addr as ipaddr.IPv4);
+
+  const v6 = addr as ipaddr.IPv6;
+  if (v6.isIPv4MappedAddress()) return v4NonPublic(v6.toIPv4Address()); // ::ffff:a.b.c.d
+  const b = v6.toByteArray();
+  const first12Zero = b.slice(0, 12).every((x) => x === 0);
+  const last4 = ((b[12] << 24) >>> 0) + (b[13] << 16) + (b[14] << 8) + b[15];
+  if (first12Zero && last4 > 1) {
+    // IPv4-compatible ::a.b.c.d (deprecated) — evaluate the embedded IPv4 (skips ::/::1).
+    return v4NonPublic(ipaddr.fromByteArray(b.slice(12)) as ipaddr.IPv4);
   }
-  if (v === 6) {
-    const lower = ip.toLowerCase();
-    if (lower === '::1' || lower === '::') return true; // loopback / unspecified
-    if (lower.startsWith('fe80')) return true; // link-local
-    if (lower.startsWith('fc') || lower.startsWith('fd')) return true; // unique-local fc00::/7
-    // IPv4-mapped / IPv4-compatible embedded address — the WHATWG URL parser serializes
-    // ::ffff:127.0.0.1 to the HEX form ::ffff:7f00:1, so handle both dotted and hex.
-    const dotted = lower.match(/^::(?:ffff:)?(\d+\.\d+\.\d+\.\d+)$/);
-    if (dotted) return isPrivateAddress(dotted[1]);
-    const hex = lower.match(/^::(?:ffff:)?(?:0:)?([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
-    if (hex) {
-      const hi = parseInt(hex[1], 16);
-      const lo = parseInt(hex[2], 16);
-      return isPrivateAddress(`${hi >> 8}.${hi & 255}.${lo >> 8}.${lo & 255}`);
-    }
-    return false;
-  }
-  // Not a valid IP literal.
-  return false;
+  return v6.range() !== 'unicast';
 }
 
 /**

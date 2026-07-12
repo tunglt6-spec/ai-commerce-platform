@@ -4,6 +4,7 @@ import { PrismaService } from '../../../common/prisma/prisma.service';
 import { EncryptionService } from '../../../common/crypto/encryption.service';
 import { ShopeeAdapterService } from './shopee-adapter.service';
 import { ShopeeConfig } from './shopee.config';
+import { setTenant } from '../../../common/context/tenant-context';
 
 const PROVIDER = 'shopee';
 const STATE_TTL_SEC = 900; // 15 min
@@ -128,6 +129,9 @@ export class ShopeeService {
     const origin = this.appOrigin();
     try {
       const tenantId = this.verifyState(state);
+      // This route is JWT-less; the tenant is proven by the signed state. Populate the
+      // request tenant context so the Prisma tenant guard scopes correctly.
+      setTenant(tenantId, false);
       if (!code || !shopId) throw new BadRequestException('Thiếu code hoặc shop_id từ Shopee');
       const tok = await this.adapter.getTokens(code, shopId);
       if (!tok.ok || !tok.accessToken) {
