@@ -14,6 +14,10 @@ async function bootstrap() {
   const logger = new Logger('Bootstrap');
 
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+  // Behind Cloudflare → nginx: trust one proxy hop so req.ip falls back to a forwarded
+  // value. Bounded (not `true`) to avoid fully client-spoofable X-Forwarded-For; the
+  // rate-limit tracker prefers CF-Connecting-IP (see ProxyThrottlerGuard).
+  app.set('trust proxy', 1);
   app.setGlobalPrefix('api/v1');
 
   // Serve uploaded media (local storage; use S3/CDN in production).

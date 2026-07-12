@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import { createHmac } from 'crypto';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { EncryptionService } from '../../common/crypto/encryption.service';
+import { assertSafeExternalUrl } from '../../common/utils/url-safety';
 import { ConnectIntegrationDto } from './dto/integration.dto';
 
 export const PROVIDERS = [
@@ -107,6 +108,14 @@ export class IntegrationsService {
     if (!verifyUrl) throw new BadRequestException('No verify_url configured for this integration');
     if (!record.secretRef) throw new BadRequestException('No credentials stored');
 
+    // SSRF guard: verify_url is tenant-supplied and fetched server-side.
+    try {
+      await assertSafeExternalUrl(verifyUrl);
+    } catch (e) {
+      const updated = await this.upsert(tenantId, provider, { status: 'error', lastError: `Verify blocked: ${(e as Error).message}` });
+      return this.sanitize(updated);
+    }
+
     const secret = this.encryption.decrypt(record.secretRef);
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10_000);
@@ -115,6 +124,7 @@ export class IntegrationsService {
         method: 'GET',
         headers: { Authorization: `Bearer ${secret}`, Accept: 'application/json' },
         signal: controller.signal,
+        redirect: 'error', // don't follow redirects into an internal target (SSRF)
       });
       if (res.ok) {
         const updated = await this.upsert(tenantId, provider, {
@@ -155,6 +165,10 @@ export class IntegrationsService {
         const url = cfg.webhook_url as string | undefined;
         if (!url || !t.secretRef) return;
         try {
+          // SSRF guard: webhook_url is tenant-supplied and POSTed to server-side.
+          await assertSafeExternalUrl(url).catch((e) => {
+            throw new Error(`blocked ${(e as Error).message}`);
+          });
           const secret = this.encryption.decrypt(t.secretRef);
           const signature = createHmac('sha256', secret).update(body).digest('hex');
           const controller = new AbortController();
@@ -168,6 +182,7 @@ export class IntegrationsService {
             },
             body,
             signal: controller.signal,
+            redirect: 'error', // don't follow redirects into an internal target (SSRF)
           }).finally(() => clearTimeout(timeout));
           if (!res.ok) {
             await this.upsert(tenantId, t.provider, { lastError: `Webhook ${event}: HTTP ${res.status}` });

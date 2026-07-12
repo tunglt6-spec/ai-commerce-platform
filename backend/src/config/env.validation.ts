@@ -73,6 +73,17 @@ export class EnvVars {
   @IsOptional()
   @IsString()
   AI_MODEL_STRATEGY = 'claude-sonnet';
+
+  @IsOptional()
+  @IsString()
+  INTEGRATION_ENC_KEY = '';
+}
+
+/** Decode a 32-byte key (base64 or 64-char hex). Returns byte length or -1 if invalid. */
+function encKeyBytes(raw: string): number {
+  if (!raw) return -1;
+  const buf = raw.length === 64 ? Buffer.from(raw, 'hex') : Buffer.from(raw, 'base64');
+  return buf.length;
 }
 
 export function validateEnv(config: Record<string, unknown>): EnvVars {
@@ -86,5 +97,20 @@ export function validateEnv(config: Record<string, unknown>): EnvVars {
       .join('; ');
     throw new Error(`Invalid environment configuration: ${details}`);
   }
+
+  // Production hardening: integration/token encryption must use a dedicated 32-byte
+  // key, never the dev fallback that derives it from the JWT secret.
+  if (validated.NODE_ENV === 'production') {
+    const bytes = encKeyBytes(validated.INTEGRATION_ENC_KEY);
+    if (bytes !== 32) {
+      throw new Error(
+        'INTEGRATION_ENC_KEY must be set to a 32-byte key (base64 or 64-hex) in production — generate with `openssl rand -base64 32`.',
+      );
+    }
+    if (validated.JWT_ACCESS_SECRET === validated.JWT_REFRESH_SECRET) {
+      throw new Error('JWT_ACCESS_SECRET and JWT_REFRESH_SECRET must differ in production.');
+    }
+  }
+
   return validated;
 }

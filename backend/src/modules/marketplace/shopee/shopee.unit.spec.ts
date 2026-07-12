@@ -150,10 +150,11 @@ describe('Shopee adapter (unit, deterministic)', () => {
     it('uploadImageFromUrl fetches bytes then returns image_id', async () => {
       const fetchMock = jest
         .fn()
-        .mockResolvedValueOnce({ ok: true, status: 200, arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer })
+        .mockResolvedValueOnce({ ok: true, status: 200, headers: { get: () => '3' }, arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer })
         .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ response: { image_info: { image_id: 'IMG_XYZ' } } }) });
       global.fetch = fetchMock as any;
-      const res = await adapter().uploadImageFromUrl('999', 'ACCESS', 'https://cdn.example/pic.jpg');
+      // Public IP-literal host: passes the SSRF guard without a DNS lookup; fetch is mocked.
+      const res = await adapter().uploadImageFromUrl('999', 'ACCESS', 'https://93.184.216.34/pic.jpg');
       expect(res.ok).toBe(true);
       expect(res.imageId).toBe('IMG_XYZ');
       expect(String(fetchMock.mock.calls[1][0])).toContain('/api/v2/media_space/upload_image');
@@ -161,9 +162,17 @@ describe('Shopee adapter (unit, deterministic)', () => {
 
     it('uploadImageFromUrl fails-closed when image fetch errors', async () => {
       global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 404 }) as any;
-      const res = await adapter().uploadImageFromUrl('999', 'ACCESS', 'https://cdn.example/missing.jpg');
+      const res = await adapter().uploadImageFromUrl('999', 'ACCESS', 'https://93.184.216.34/missing.jpg');
       expect(res.ok).toBe(false);
       expect(res.error).toBe('IMAGE_FETCH_404');
+    });
+
+    it('uploadImageFromUrl fails-closed (SSRF) for a private/metadata image URL', async () => {
+      global.fetch = jest.fn() as any;
+      const res = await adapter().uploadImageFromUrl('999', 'ACCESS', 'http://169.254.169.254/latest/meta-data/');
+      expect(res.ok).toBe(false);
+      expect(res.error).toContain('SSRF_BLOCKED');
+      expect((global.fetch as any)).not.toHaveBeenCalled();
     });
   });
 

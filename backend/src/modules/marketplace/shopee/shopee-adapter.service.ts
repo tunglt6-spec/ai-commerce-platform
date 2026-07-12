@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { createHmac } from 'crypto';
+import { assertSafeExternalUrl } from '../../../common/utils/url-safety';
 import { ShopeeConfig } from './shopee.config';
 
 export interface ShopeeTokenResult {
@@ -236,13 +237,25 @@ export class ShopeeAdapterService {
    */
   async uploadImageFromUrl(shopId: string | number, accessToken: string, imageUrl: string): Promise<{ ok: boolean; imageId?: string; error?: string }> {
     if (!this.config.isConfigured) return { ok: false, error: 'SHOPEE_NOT_CONFIGURED' };
+    // SSRF guard: imageUrl is caller-supplied and fetched server-side.
+    try {
+      await assertSafeExternalUrl(imageUrl);
+    } catch (e) {
+      return { ok: false, error: `SSRF_BLOCKED:${(e as Error).message}` };
+    }
     const path = '/api/v2/media_space/upload_image';
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
     try {
-      const imgRes = await fetch(imageUrl, { signal: controller.signal });
+      // redirect:'error' — a validated public URL must not 302 into an internal target (SSRF).
+      const imgRes = await fetch(imageUrl, { signal: controller.signal, redirect: 'error' });
       if (!imgRes.ok) return { ok: false, error: `IMAGE_FETCH_${imgRes.status}` };
+      // Cap the download so a public-but-hostile URL can't exhaust memory.
+      const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+      const declared = Number(imgRes.headers.get('content-length') || 0);
+      if (declared > MAX_IMAGE_BYTES) return { ok: false, error: 'IMAGE_TOO_LARGE' };
       const buf = Buffer.from(await imgRes.arrayBuffer());
+      if (buf.length > MAX_IMAGE_BYTES) return { ok: false, error: 'IMAGE_TOO_LARGE' };
       const form = new FormData();
       form.append('image', new Blob([buf]), 'image.jpg');
       const url = `${this.config.host}${path}?${this.commonQuery(path, accessToken, shopId)}`;
