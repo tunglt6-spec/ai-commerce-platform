@@ -211,4 +211,52 @@ export class ShopeeAdapterService {
   async updateStock(shopId: string | number, accessToken: string, itemId: number, stockList: Array<Record<string, unknown>>): Promise<ShopeeApiResult> {
     return this.request('POST', '/api/v2/product/update_stock', { accessToken, shopId, body: { item_id: itemId, stock_list: stockList } });
   }
+
+  // ---- Listing helpers (for building a valid add_item) ----
+
+  /** Enabled logistics channels for the shop (needed for logistic_info in add_item). */
+  async getLogisticsChannels(shopId: string | number, accessToken: string): Promise<ShopeeApiResult> {
+    return this.request('GET', '/api/v2/logistics/get_channel_list', { accessToken, shopId });
+  }
+
+  /** Shopee category tree (seller picks the leaf category_id). */
+  async getCategory(shopId: string | number, accessToken: string, language = 'vi'): Promise<ShopeeApiResult> {
+    return this.request('GET', '/api/v2/product/get_category', { accessToken, shopId, query: { language } });
+  }
+
+  /** Mandatory/optional attributes for a category (must be satisfied in add_item). */
+  async getAttributes(shopId: string | number, accessToken: string, categoryId: number, language = 'vi'): Promise<ShopeeApiResult> {
+    return this.request('GET', '/api/v2/product/get_attributes', { accessToken, shopId, query: { category_id: categoryId, language } });
+  }
+
+  /**
+   * Upload an image to Shopee media space (multipart) and return its image_id, which
+   * add_item requires. Fetches the image bytes from `imageUrl` first. v2 signature
+   * is over the common params only (body is not signed for multipart).
+   */
+  async uploadImageFromUrl(shopId: string | number, accessToken: string, imageUrl: string): Promise<{ ok: boolean; imageId?: string; error?: string }> {
+    if (!this.config.isConfigured) return { ok: false, error: 'SHOPEE_NOT_CONFIGURED' };
+    const path = '/api/v2/media_space/upload_image';
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    try {
+      const imgRes = await fetch(imageUrl, { signal: controller.signal });
+      if (!imgRes.ok) return { ok: false, error: `IMAGE_FETCH_${imgRes.status}` };
+      const buf = Buffer.from(await imgRes.arrayBuffer());
+      const form = new FormData();
+      form.append('image', new Blob([buf]), 'image.jpg');
+      const url = `${this.config.host}${path}?${this.commonQuery(path, accessToken, shopId)}`;
+      const res = await fetch(url, { method: 'POST', body: form, signal: controller.signal });
+      const json = (await res.json().catch(() => ({}))) as any;
+      if (!res.ok || json?.error) return { ok: false, error: json?.error || `HTTP_${res.status}` };
+      const imageId = json?.response?.image_info?.image_id ?? json?.response?.image_id;
+      if (!imageId) return { ok: false, error: 'NO_IMAGE_ID' };
+      return { ok: true, imageId };
+    } catch (e) {
+      const err = e as Error;
+      return { ok: false, error: err.name === 'AbortError' ? 'TIMEOUT' : err.message };
+    } finally {
+      clearTimeout(timer);
+    }
+  }
 }

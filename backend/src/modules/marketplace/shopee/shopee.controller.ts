@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, Post, Query, Res } from '@nestjs/common';
-import { IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsArray, IsIn, IsNumber, IsObject, IsOptional, IsString } from 'class-validator';
 import { Response } from 'express';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { Roles } from '../../../common/decorators/roles.decorator';
@@ -13,6 +13,22 @@ export class PushProductDto {
   @IsOptional() @IsString() shopee_item_id?: string;
   @IsOptional() @IsNumber() price?: number;
   @IsOptional() @IsNumber() stock?: number;
+}
+
+export class CreateListingDto {
+  @IsNumber() category_id!: number;
+  @IsNumber() price!: number;
+  @IsNumber() stock!: number;
+  @IsNumber() weight_kg!: number;
+  @IsArray() logistics!: Array<{ logistic_id: number; enabled: boolean; is_free?: boolean; shipping_fee?: number }>;
+  @IsOptional() @IsArray() image_urls?: string[];
+  @IsOptional() @IsString() name?: string;
+  @IsOptional() @IsString() description?: string;
+  @IsOptional() @IsObject() dimension_cm?: { length: number; width: number; height: number };
+  @IsOptional() @IsArray() attribute_list?: Array<Record<string, unknown>>;
+  @IsOptional() @IsObject() brand?: { brand_id: number; original_brand_name?: string };
+  @IsOptional() @IsIn(['NEW', 'USED']) condition?: 'NEW' | 'USED';
+  @IsOptional() @IsNumber() days_to_ship?: number;
 }
 
 @Controller('marketplace/shopee')
@@ -89,6 +105,55 @@ export class ShopeeController {
           shopee_item_id: dto.shopee_item_id,
           price: dto.price,
           stock: dto.stock,
+          financial_impact: dto.price ?? 0,
+        },
+      },
+    );
+    return { success: true, data };
+  }
+
+  /**
+   * Read-only reference data for building a new listing: enabled logistics channels,
+   * the Shopee category tree, and (with ?category_id) that category's attributes.
+   */
+  @Get('listing-refs')
+  @Roles(ROLES.OPERATOR)
+  async listingRefs(@CurrentUser('tenantId') tenantId: string, @Query('category_id') categoryId?: string) {
+    return { success: true, data: await this.shopee.listingRefs(tenantId, categoryId ? Number(categoryId) : undefined) };
+  }
+
+  /**
+   * Create a brand-new Shopee listing (add_item) from an internal product. EXTERNAL
+   * WRITE — never calls Shopee directly; raises a compliance proposal that must clear
+   * the Policy Guard + human approval, then runs via the Execution Gateway executor.
+   */
+  @Post('products/:productId/create-listing')
+  @Roles(ROLES.OPERATOR)
+  async createListing(@CurrentUser() user: AuthenticatedUser, @Param('productId') productId: string, @Body() dto: CreateListingDto) {
+    const data = await this.compliance.propose(
+      user.tenantId,
+      { userId: user.userId },
+      {
+        agentId: 'product_ai',
+        actionType: 'create_listing',
+        platform: 'shopee',
+        targetType: 'product',
+        targetId: productId,
+        payload: {
+          product_id: productId,
+          category_id: dto.category_id,
+          price: dto.price,
+          stock: dto.stock,
+          weight_kg: dto.weight_kg,
+          logistics: dto.logistics,
+          image_urls: dto.image_urls,
+          name: dto.name,
+          description: dto.description,
+          dimension_cm: dto.dimension_cm,
+          attribute_list: dto.attribute_list,
+          brand: dto.brand,
+          condition: dto.condition,
+          days_to_ship: dto.days_to_ship,
           financial_impact: dto.price ?? 0,
         },
       },

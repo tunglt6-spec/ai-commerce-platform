@@ -5,7 +5,7 @@ import { api, ApiError } from '@/lib/api';
 import { usePermissions } from '@/lib/roles';
 import { useApi } from '@/lib/use-api';
 import { formatDate, formatNumber } from '@/lib/utils';
-import { CheckCircle2, Download, Link2, PackageSearch, RefreshCw, ShoppingBag, Upload, XCircle } from 'lucide-react';
+import { CheckCircle2, Download, Link2, PackagePlus, PackageSearch, RefreshCw, ShoppingBag, Truck, Upload, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
@@ -117,6 +117,77 @@ function ShopeeInner() {
       });
     } catch (e) {
       setMsg({ tone: 'err', text: e instanceof ApiError ? e.message : 'Tạo đề xuất đẩy thất bại' });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  // ---- Tạo listing mới (add_item) ----
+  const [refs, setRefs] = useState<{ logistics: any[]; categories: any[] } | null>(null);
+  const [createForm, setCreateForm] = useState({
+    product_id: '',
+    category_id: '',
+    price: '',
+    stock: '',
+    weight_kg: '0.5',
+    length: '15',
+    width: '15',
+    height: '5',
+    image_urls: '',
+    condition: 'NEW',
+  });
+  const [logiSel, setLogiSel] = useState<Record<string, boolean>>({});
+
+  const loadRefs = async () => {
+    setBusy('refs');
+    setMsg(null);
+    try {
+      const res = await api.get('/marketplace/shopee/listing-refs');
+      const logistics = Array.isArray(res.data?.logistics) ? res.data.logistics : [];
+      const categories = Array.isArray(res.data?.categories) ? res.data.categories : [];
+      setRefs({ logistics, categories });
+      setMsg({ tone: 'ok', text: `Đã tải ${logistics.length} kênh vận chuyển, ${categories.length} danh mục từ Shopee.` });
+    } catch (e) {
+      setMsg({ tone: 'err', text: e instanceof ApiError ? e.message : 'Không tải được danh mục/vận chuyển. Cần kết nối Shopee thật.' });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const createListing = async () => {
+    if (!createForm.product_id || !createForm.category_id) {
+      setMsg({ tone: 'err', text: 'Cần Product ID nội bộ và Category ID (lá) của Shopee.' });
+      return;
+    }
+    const logistics = (refs?.logistics ?? [])
+      .filter((l) => logiSel[String(l.logistics_channel_id)])
+      .map((l) => ({ logistic_id: Number(l.logistics_channel_id), enabled: true }));
+    if (!logistics.length) {
+      setMsg({ tone: 'err', text: 'Chọn ít nhất 1 kênh vận chuyển (bấm "Tải danh mục & vận chuyển" trước).' });
+      return;
+    }
+    setBusy('create');
+    setMsg(null);
+    try {
+      const body: any = {
+        category_id: Number(createForm.category_id),
+        price: Number(createForm.price) || 0,
+        stock: Number(createForm.stock) || 0,
+        weight_kg: Number(createForm.weight_kg) || 0.1,
+        logistics,
+        dimension_cm: { length: Number(createForm.length) || 10, width: Number(createForm.width) || 10, height: Number(createForm.height) || 10 },
+        condition: createForm.condition,
+      };
+      const urls = createForm.image_urls.split(/[\n,]/).map((u) => u.trim()).filter(Boolean);
+      if (urls.length) body.image_urls = urls;
+      const res = await api.post(`/marketplace/shopee/products/${createForm.product_id}/create-listing`, body);
+      const d = res.data.decision?.decision;
+      setMsg({
+        tone: 'ok',
+        text: `Đã tạo đề xuất tạo listing (quyết định: ${d}). ${d === 'REQUIRE_APPROVAL' ? 'Vào "Phê duyệt" để duyệt, rồi "Đề xuất hành động" để Thực thi (upload ảnh + add_item chạy khi thực thi).' : ''}`,
+      });
+    } catch (e) {
+      setMsg({ tone: 'err', text: e instanceof ApiError ? e.message : 'Tạo đề xuất listing thất bại' });
     } finally {
       setBusy(null);
     }
@@ -282,9 +353,126 @@ SHOPEE_REDIRECT_URL=https://store.picklefund.uk/api/v1/marketplace/shopee/callba
               </div>
             </div>
             <div className="flex items-center justify-between">
-              <p className="text-xs text-ink-400">MVP: cập nhật giá/tồn cho item đã có trên Shopee. Tạo listing mới (add_item) ở bản sau.</p>
+              <p className="text-xs text-ink-400">Cập nhật giá/tồn cho item đã có trên Shopee. Tạo listing mới (add_item) ở khối bên dưới.</p>
               <Button loading={busy === 'push'} disabled={!canOperate} onClick={push}>
                 <Upload className="h-4 w-4" /> Tạo đề xuất đẩy
+              </Button>
+            </div>
+          </CardBody>
+        </Card>
+      )}
+
+      {/* Tạo listing mới (add_item) — qua Compliance Gateway */}
+      {s.connected && (
+        <Card>
+          <CardBody className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="flex items-center gap-2 text-lg font-semibold text-ink-950">
+                  <PackagePlus className="h-4 w-4 text-brand-600" /> Tạo listing mới (add_item)
+                </h2>
+                <p className="text-sm text-ink-500">
+                  Đăng sản phẩm nội bộ lên Shopee kèm ảnh &amp; vận chuyển. Ghi ra sàn — tạo <b>đề xuất</b> qua Compliance Gateway; ảnh được upload và <code className="rounded bg-ink-100 px-1">add_item</code> chỉ chạy khi <b>Thực thi</b> sau phê duyệt.
+                </p>
+              </div>
+              <Button variant="secondary" size="sm" loading={busy === 'refs'} disabled={!canOperate} onClick={loadRefs}>
+                <Truck className="h-4 w-4" /> Tải danh mục &amp; vận chuyển
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <Label htmlFor="cpid">Product ID (nội bộ)</Label>
+                <Input id="cpid" value={createForm.product_id} onChange={(e) => setCreateForm({ ...createForm, product_id: e.target.value })} placeholder="uuid sản phẩm" />
+              </div>
+              <div>
+                <Label htmlFor="ccat">Category ID (lá, Shopee)</Label>
+                <Input id="ccat" type="number" value={createForm.category_id} onChange={(e) => setCreateForm({ ...createForm, category_id: e.target.value })} placeholder={refs ? `${refs.categories.length} danh mục đã tải` : 'bấm Tải danh mục'} />
+              </div>
+              <div>
+                <Label htmlFor="cprice">Giá (VND)</Label>
+                <Input id="cprice" type="number" min="0" value={createForm.price} onChange={(e) => setCreateForm({ ...createForm, price: e.target.value })} />
+              </div>
+              <div>
+                <Label htmlFor="cstock">Tồn kho</Label>
+                <Input id="cstock" type="number" min="0" value={createForm.stock} onChange={(e) => setCreateForm({ ...createForm, stock: e.target.value })} />
+              </div>
+              <div>
+                <Label htmlFor="cw">Cân nặng (kg)</Label>
+                <Input id="cw" type="number" min="0" step="0.01" value={createForm.weight_kg} onChange={(e) => setCreateForm({ ...createForm, weight_kg: e.target.value })} />
+              </div>
+              <div>
+                <Label htmlFor="ccond">Tình trạng</Label>
+                <select
+                  id="ccond"
+                  value={createForm.condition}
+                  onChange={(e) => setCreateForm({ ...createForm, condition: e.target.value })}
+                  className="w-full rounded-xl border border-ink-200 bg-white px-3 py-2 text-sm text-ink-900 focus:border-brand-400 focus:outline-none"
+                >
+                  <option value="NEW">Mới</option>
+                  <option value="USED">Đã dùng</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <Label htmlFor="cl">Dài (cm)</Label>
+                <Input id="cl" type="number" min="1" value={createForm.length} onChange={(e) => setCreateForm({ ...createForm, length: e.target.value })} />
+              </div>
+              <div>
+                <Label htmlFor="cwid">Rộng (cm)</Label>
+                <Input id="cwid" type="number" min="1" value={createForm.width} onChange={(e) => setCreateForm({ ...createForm, width: e.target.value })} />
+              </div>
+              <div>
+                <Label htmlFor="ch">Cao (cm)</Label>
+                <Input id="ch" type="number" min="1" value={createForm.height} onChange={(e) => setCreateForm({ ...createForm, height: e.target.value })} />
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="cimg">Ảnh (mỗi URL 1 dòng — bỏ trống sẽ dùng ảnh sẵn của sản phẩm)</Label>
+              <textarea
+                id="cimg"
+                rows={2}
+                value={createForm.image_urls}
+                onChange={(e) => setCreateForm({ ...createForm, image_urls: e.target.value })}
+                placeholder="https://.../a.jpg&#10;https://.../b.jpg"
+                className="w-full rounded-xl border border-ink-200 bg-white px-3 py-2 text-sm text-ink-900 focus:border-brand-400 focus:outline-none"
+              />
+            </div>
+
+            {refs && (
+              <div>
+                <Label>Kênh vận chuyển (chọn ít nhất 1)</Label>
+                {refs.logistics.length ? (
+                  <div className="mt-1 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {refs.logistics.map((l: any) => {
+                      const id = String(l.logistics_channel_id);
+                      return (
+                        <label key={id} className="flex items-center gap-2 rounded-xl border border-ink-100 bg-white/70 px-3 py-2 text-sm text-ink-700">
+                          <input
+                            type="checkbox"
+                            checked={!!logiSel[id]}
+                            onChange={(e) => setLogiSel({ ...logiSel, [id]: e.target.checked })}
+                            className="h-4 w-4 rounded border-ink-300 text-brand-600"
+                          />
+                          <span>{l.logistics_channel_name ?? `Kênh ${id}`}</span>
+                          <span className="ml-auto font-mono text-xs text-ink-400">{id}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="mt-1 rounded-xl border border-dashed border-ink-200 bg-ink-50/70 px-3 py-3 text-sm text-ink-500">Chưa có kênh vận chuyển bật cho cửa hàng này.</p>
+                )}
+              </div>
+            )}
+
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-ink-400">Danh mục &amp; thuộc tính bắt buộc khác nhau theo ngành hàng — nếu Shopee báo thiếu thuộc tính khi thực thi, bổ sung qua listing-refs.</p>
+              <Button loading={busy === 'create'} disabled={!canOperate} onClick={createListing}>
+                <PackagePlus className="h-4 w-4" /> Tạo đề xuất listing
               </Button>
             </div>
           </CardBody>

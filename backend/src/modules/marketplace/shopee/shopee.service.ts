@@ -14,6 +14,60 @@ interface StoredTokens {
   refresh_token: string;
 }
 
+export interface CreateListingInput {
+  name: string;
+  description: string;
+  categoryId: number;
+  price: number;
+  stock: number;
+  weightKg: number;
+  imageIds: string[];
+  logistics: Array<{ logistic_id: number; enabled: boolean; is_free?: boolean; shipping_fee?: number }>;
+  dimensionCm?: { length: number; width: number; height: number };
+  attributeList?: Array<Record<string, unknown>>;
+  brand?: { brand_id: number; original_brand_name?: string };
+  condition?: 'NEW' | 'USED';
+  daysToShip?: number;
+}
+
+/**
+ * Build the Shopee v2 `add_item` body — pure and deterministic so it can be unit-tested
+ * without any network. Shopee rejects the call unless category, at least one image_id,
+ * weight, dimension, and at least one enabled logistics channel are all present.
+ */
+export function buildAddItemBody(input: CreateListingInput): Record<string, unknown> {
+  const logistic = (input.logistics ?? [])
+    .filter((l) => l && l.enabled && Number(l.logistic_id))
+    .map((l) => ({
+      logistic_id: Number(l.logistic_id),
+      enabled: true,
+      ...(l.is_free != null ? { is_free: !!l.is_free } : {}),
+      ...(l.shipping_fee != null ? { shipping_fee: Number(l.shipping_fee) } : {}),
+    }));
+  const dim = input.dimensionCm ?? { length: 10, width: 10, height: 10 };
+  return {
+    item_name: String(input.name).slice(0, 120),
+    description: String(input.description || input.name).slice(0, 3000),
+    category_id: Number(input.categoryId),
+    original_price: Number(input.price),
+    seller_stock: [{ stock: Math.max(0, Math.floor(Number(input.stock) || 0)) }],
+    weight: Number(input.weightKg) || 0.1,
+    dimension: {
+      package_length: Math.max(1, Math.round(dim.length)),
+      package_width: Math.max(1, Math.round(dim.width)),
+      package_height: Math.max(1, Math.round(dim.height)),
+    },
+    image: { image_id_list: input.imageIds.slice(0, 9) },
+    logistic_info: logistic,
+    attribute_list: input.attributeList ?? [],
+    item_status: 'NORMAL',
+    item_dangerous: 0,
+    condition: input.condition ?? 'NEW',
+    pre_order: { is_pre_order: false, days_to_ship: Math.max(2, Math.min(input.daysToShip ?? 3, 7)) },
+    ...(input.brand ? { brand: { brand_id: Number(input.brand.brand_id), original_brand_name: input.brand.original_brand_name ?? '' } } : {}),
+  };
+}
+
 @Injectable()
 export class ShopeeService {
   private readonly logger = new Logger(ShopeeService.name);
@@ -262,5 +316,105 @@ export class ShopeeService {
       if (!r.ok) return { ok: false, error: r.error, responseRedacted: results };
     }
     return { ok: true, externalReference: `shopee_item_${itemId}`, responseRedacted: { item_id: itemId, ...results } };
+  }
+
+  /**
+   * Reference data the UI needs to fill an add_item form: enabled logistics channels,
+   * the category tree, and (optionally) the mandatory attributes for a chosen category.
+   * Read-only — safe to call directly (no external write).
+   */
+  async listingRefs(tenantId: string, categoryId?: number) {
+    const { accessToken, shopId } = await this.getValidToken(tenantId);
+    const [logi, cat] = await Promise.all([
+      this.adapter.getLogisticsChannels(shopId, accessToken),
+      this.adapter.getCategory(shopId, accessToken),
+    ]);
+    let attributes: any = null;
+    if (categoryId) {
+      const attr = await this.adapter.getAttributes(shopId, accessToken, Number(categoryId));
+      attributes = attr.ok ? attr.data?.response?.attribute_list ?? [] : { error: attr.error };
+    }
+    return {
+      logistics: logi.ok ? logi.data?.response?.logistics_channel_list ?? [] : { error: logi.error },
+      categories: cat.ok ? cat.data?.response?.category_list ?? [] : { error: cat.error },
+      attributes,
+    };
+  }
+
+  /**
+   * Create a brand-new Shopee listing (add_item). ONLY invoked by the Execution Gateway
+   * executor after a compliance decision + human approval. Uploads the product images to
+   * Shopee media space first (add_item needs image_id, not a URL), builds the full body,
+   * then records the new Shopee item_id back onto the internal Product. Fail-closed at
+   * every stage — never fabricates success.
+   */
+  async createListing(tenantId: string, payload: Record<string, any>): Promise<{ ok: boolean; externalReference?: string; responseRedacted?: Record<string, unknown>; error?: string }> {
+    let token: { accessToken: string; shopId: string };
+    try {
+      token = await this.getValidToken(tenantId);
+    } catch (e) {
+      return { ok: false, error: (e as Error).message, responseRedacted: { stage: 'auth', error: (e as Error).message } };
+    }
+
+    const productId = String(payload.product_id ?? '');
+    const product = productId ? await this.prisma.product.findFirst({ where: { id: productId, tenantId } }) : null;
+    if (!product) {
+      return { ok: false, error: 'PRODUCT_NOT_FOUND', responseRedacted: { stage: 'load', product_id: productId } };
+    }
+
+    const categoryId = Number(payload.category_id);
+    if (!categoryId) return { ok: false, error: 'MISSING_CATEGORY_ID', responseRedacted: { stage: 'validate', note: 'Cần category_id lá của Shopee (lấy qua listing-refs).' } };
+
+    const logistics: any[] = Array.isArray(payload.logistics) ? payload.logistics : [];
+    if (!logistics.some((l) => l?.enabled)) {
+      return { ok: false, error: 'MISSING_LOGISTICS', responseRedacted: { stage: 'validate', note: 'Cần ít nhất 1 kênh vận chuyển bật (lấy qua listing-refs).' } };
+    }
+
+    const imageUrls: string[] = (Array.isArray(payload.image_urls) && payload.image_urls.length ? payload.image_urls : product.imageUrls) ?? [];
+    if (!imageUrls.length) {
+      return { ok: false, error: 'MISSING_IMAGES', responseRedacted: { stage: 'validate', note: 'Cần ít nhất 1 ảnh (image_urls hoặc ảnh sẵn của sản phẩm).' } };
+    }
+
+    // Upload images → image_id_list. Fail-closed if any upload fails.
+    const imageIds: string[] = [];
+    for (const url of imageUrls.slice(0, 9)) {
+      const up = await this.adapter.uploadImageFromUrl(token.shopId, token.accessToken, url);
+      if (!up.ok || !up.imageId) {
+        return { ok: false, error: `IMAGE_UPLOAD_FAILED:${up.error}`, responseRedacted: { stage: 'upload', url, error: up.error, uploaded: imageIds.length } };
+      }
+      imageIds.push(up.imageId);
+    }
+
+    const body = buildAddItemBody({
+      name: payload.name ? String(payload.name) : product.name,
+      description: payload.description ? String(payload.description) : product.description || product.shortDescription || product.name,
+      categoryId,
+      price: payload.price != null ? Number(payload.price) : Number(product.retailPrice),
+      stock: Number(payload.stock ?? 0),
+      weightKg: Number(payload.weight_kg ?? 0.1),
+      imageIds,
+      logistics,
+      dimensionCm: payload.dimension_cm,
+      attributeList: payload.attribute_list,
+      brand: payload.brand,
+      condition: payload.condition,
+      daysToShip: payload.days_to_ship,
+    });
+
+    const res = await this.adapter.addItem(token.shopId, token.accessToken, body);
+    if (!res.ok) {
+      return { ok: false, error: res.error, responseRedacted: { stage: 'add_item', error: res.error, message: res.message } };
+    }
+    const newItemId = res.data?.response?.item_id;
+    if (!newItemId) {
+      return { ok: false, error: 'NO_ITEM_ID_RETURNED', responseRedacted: { stage: 'add_item', response: 'no item_id' } };
+    }
+
+    // Record the Shopee item_id back onto the internal product so future pushes update it.
+    const existingTags = (Array.isArray(product.tags) ? product.tags : []) as string[];
+    const tags = Array.from(new Set([...existingTags.filter((t) => !String(t).startsWith('shopee_item:')), 'shopee', `shopee_item:${newItemId}`]));
+    await this.prisma.product.update({ where: { id: product.id }, data: { tags } }).catch(() => null);
+
+    return { ok: true, externalReference: `shopee_item_${newItemId}`, responseRedacted: { item_id: newItemId, images: imageIds.length, category_id: categoryId } };
   }
 }

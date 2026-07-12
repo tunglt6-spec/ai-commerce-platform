@@ -61,7 +61,8 @@ export const ACTION = {
   PUBLIC_REPLY: 'public_reply',
   LAUNCH_CAMPAIGN: 'launch_campaign',
   SYNC_MARKETPLACE: 'sync_marketplace',
-  PUSH_PRODUCT: 'push_product', // create/update a marketplace listing (external write)
+  PUSH_PRODUCT: 'push_product', // update price/stock of an existing listing (external write)
+  CREATE_LISTING: 'create_listing', // create a brand-new marketplace listing (external write)
   // financial / legal (RISK 4)
   CHANGE_PRICE: 'change_price',
   APPLY_DISCOUNT: 'apply_discount',
@@ -94,6 +95,7 @@ export const ACTION_BASE_RISK: Record<string, number> = {
   [ACTION.LAUNCH_CAMPAIGN]: RISK.EXTERNAL_PUBLIC,
   [ACTION.SYNC_MARKETPLACE]: RISK.EXTERNAL_PUBLIC,
   [ACTION.PUSH_PRODUCT]: RISK.EXTERNAL_PUBLIC,
+  [ACTION.CREATE_LISTING]: RISK.EXTERNAL_PUBLIC,
   [ACTION.CHANGE_PRICE]: RISK.FINANCIAL_OR_LEGAL,
   [ACTION.APPLY_DISCOUNT]: RISK.FINANCIAL_OR_LEGAL,
   [ACTION.CREATE_HIGH_VALUE_ORDER]: RISK.FINANCIAL_OR_LEGAL,
@@ -129,6 +131,7 @@ export const EXTERNAL_ACTIONS = new Set<string>([
   ACTION.LAUNCH_CAMPAIGN,
   ACTION.SYNC_MARKETPLACE,
   ACTION.PUSH_PRODUCT,
+  ACTION.CREATE_LISTING,
   ...FINANCIAL_ACTIONS,
 ]);
 

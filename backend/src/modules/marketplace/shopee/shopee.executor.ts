@@ -22,5 +22,12 @@ export class ShopeeExecutor implements OnModuleInit {
       }
       return this.shopee.pushProduct(ctx.tenantId, ctx.payload);
     });
+
+    this.registry.register(ACTION.CREATE_LISTING, async (ctx) => {
+      if (ctx.platform !== 'shopee') {
+        return { ok: false, error: 'UNSUPPORTED_PLATFORM', responseRedacted: { platform: ctx.platform } };
+      }
+      return this.shopee.createListing(ctx.tenantId, ctx.payload);
+    });
   }
 }
