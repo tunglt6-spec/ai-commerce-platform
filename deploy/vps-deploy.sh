@@ -27,11 +27,16 @@ DOMAIN="${DOMAIN:-store.picklefund.uk}"
 echo "    domain=$DOMAIN  compose=$COMPOSE_FILE"
 
 echo "==> [2/6] Build & start stack (no host ports)"
-# Clean previous project containers first (handles the service rename; named
-# volumes aic_pgdata/aic_uploads are preserved). The commerce-net network stays
-# because picklefund-nginx may be attached to it.
-docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" down --remove-orphans 2>/dev/null || true
-docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d --build
+# Build images SEQUENTIALLY before switching containers. On a small VPS (8GB)
+# building backend + frontend concurrently exhausts RAM and the TypeScript/Next
+# compile gets OOM-killed, producing an image with no dist/ (broken container).
+# We also intentionally do NOT `down` first: the currently-running containers keep
+# serving until the new images are ready, so a failed build never leaves us with
+# no working API. Named volumes + commerce-net are preserved.
+docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" build ai-commerce-api
+docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" build ai-commerce-web
+# Images are built; this step only recreates changed containers (fast, no compile).
+docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d --remove-orphans
 docker builder prune -f >/dev/null 2>&1 || true
 
 echo "==> [3/6] Wait for backend to be healthy (migrations run on boot)"
