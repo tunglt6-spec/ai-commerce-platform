@@ -12,6 +12,7 @@ import { ApprovalService } from './services/approval.service';
 import { ExecutionGatewayService } from './services/execution-gateway.service';
 import { ComplianceService } from './services/compliance.service';
 import { RegistryService } from './services/registry.service';
+import { ActionExecutorRegistry } from './services/action-executor.registry';
 
 /**
  * AI Governance & Compliance module. Enforces the Policy Guard + Execution
@@ -32,7 +33,8 @@ import { RegistryService } from './services/registry.service';
     ExecutionGatewayService,
     ComplianceService,
     RegistryService,
+    ActionExecutorRegistry,
   ],
-  exports: [PolicyGuardService, ExecutionGatewayService, ComplianceService, AgentPermissionService],
+  exports: [PolicyGuardService, ExecutionGatewayService, ComplianceService, AgentPermissionService, ActionExecutorRegistry],
 })
 export class ComplianceModule {}

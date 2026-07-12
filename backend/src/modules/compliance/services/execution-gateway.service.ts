@@ -6,6 +6,7 @@ import { payloadHash } from '../util/payload-hash';
 import { PolicyGuardService } from '../engine/policy-guard.service';
 import { KillSwitchService } from './kill-switch.service';
 import { ComplianceAuditService } from './compliance-audit.service';
+import { ActionExecutorRegistry } from './action-executor.registry';
 
 export interface GatewayResult {
   status: string;
@@ -32,6 +33,7 @@ export class ExecutionGatewayService {
     private readonly guard: PolicyGuardService,
     private readonly killSwitch: KillSwitchService,
     private readonly audit: ComplianceAuditService,
+    private readonly executors: ActionExecutorRegistry,
   ) {}
 
   async execute(tenantId: string, proposalId: string, actor: { userId: string; role: string }): Promise<GatewayResult> {
@@ -124,8 +126,21 @@ export class ExecutionGatewayService {
     let responseRedacted: Record<string, unknown> = { mode: 'internal_effect' };
 
     try {
-      if (EXTERNAL_ACTIONS.has(proposal.actionType) && proposal.platform && proposal.platform !== 'website' && proposal.platform !== 'internal') {
-        // Real external platform posting needs an official adapter + credential.
+      const handler = this.executors.get(proposal.actionType);
+      if (handler) {
+        // A feature module (e.g. marketplace/Shopee) registered a real executor.
+        const out = await handler({
+          tenantId,
+          proposalId: proposal.id,
+          actionType: proposal.actionType,
+          platform: proposal.platform,
+          payload: (proposal.payload as Record<string, any>) ?? {},
+        });
+        result = out.ok ? 'SUCCESS' : 'FAILED';
+        externalReference = out.externalReference ?? null;
+        responseRedacted = out.responseRedacted ?? { ok: out.ok, error: out.error };
+      } else if (EXTERNAL_ACTIONS.has(proposal.actionType) && proposal.platform && proposal.platform !== 'website' && proposal.platform !== 'internal') {
+        // External action with no registered adapter — require a connected integration.
         const integration = await this.prisma.integration.findFirst({
           where: { tenantId, provider: proposal.platform, status: 'connected', isActive: true },
         });

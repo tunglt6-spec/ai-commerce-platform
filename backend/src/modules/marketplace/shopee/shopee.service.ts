@@ -179,4 +179,88 @@ export class ShopeeService {
       orders: details.length ? details : orderList,
     };
   }
+
+  // ---- Products ----
+
+  private async getImportCategoryId(tenantId: string): Promise<string> {
+    const cat = await this.prisma.category.upsert({
+      where: { tenantId_slug: { tenantId, slug: 'shopee-import' } },
+      create: { tenantId, name: 'Shopee Import', slug: 'shopee-import' },
+      update: {},
+      select: { id: true },
+    });
+    return cat.id;
+  }
+
+  /** Import (read-only from Shopee): pull items and upsert them into internal Products. */
+  async importProducts(tenantId: string) {
+    const { accessToken, shopId } = await this.getValidToken(tenantId);
+    const list = await this.adapter.getItemList(shopId, accessToken, { pageSize: 50 });
+    if (!list.ok) throw new BadRequestException(`Lấy danh sách sản phẩm thất bại: ${list.error}`);
+    const itemIds: number[] = (list.data?.response?.item ?? []).map((i: any) => i.item_id).filter(Boolean);
+    if (!itemIds.length) return { imported: 0, updated: 0, items: [] };
+
+    const info = await this.adapter.getItemBaseInfo(shopId, accessToken, itemIds);
+    if (!info.ok) throw new BadRequestException(`Lấy thông tin sản phẩm thất bại: ${info.error}`);
+    const items: any[] = info.data?.response?.item_list ?? [];
+    const categoryId = await this.getImportCategoryId(tenantId);
+
+    let imported = 0;
+    let updated = 0;
+    const result: any[] = [];
+    for (const it of items) {
+      const sku = String(it.item_sku || `SHOPEE-${it.item_id}`);
+      const price = Number(it.price_info?.[0]?.current_price ?? it.price_info?.[0]?.original_price ?? 0);
+      const stock = Number(it.stock_info_v2?.summary_info?.total_available_stock ?? it.stock_info?.[0]?.current_stock ?? 0);
+      const existing = await this.prisma.product.findFirst({ where: { tenantId, sku } });
+      const data = {
+        name: String(it.item_name ?? sku).slice(0, 250),
+        retailPrice: price || 0,
+        shortDescription: `Nhập từ Shopee · item_id ${it.item_id}`,
+        tags: ['shopee', `shopee_item:${it.item_id}`],
+      };
+      if (existing) {
+        await this.prisma.product.update({ where: { id: existing.id }, data: { ...data, retailPrice: price || existing.retailPrice } });
+        updated += 1;
+      } else {
+        await this.prisma.product.create({
+          data: { tenantId, sku, categoryId, costPrice: 0, status: 'active', ...data },
+        });
+        imported += 1;
+      }
+      result.push({ item_id: it.item_id, sku, name: data.name, price, stock });
+    }
+    return { imported, updated, count: items.length, items: result };
+  }
+
+  /**
+   * Push a product to Shopee — ONLY invoked by the Execution Gateway executor after
+   * a compliance decision + (usually) human approval. MVP: update price/stock of an
+   * existing listing (payload.shopee_item_id required). Creating a brand-new listing
+   * (add_item) needs full media/logistics/category and is a later phase.
+   */
+  async pushProduct(tenantId: string, payload: Record<string, any>): Promise<{ ok: boolean; externalReference?: string; responseRedacted?: Record<string, unknown>; error?: string }> {
+    let token: { accessToken: string; shopId: string };
+    try {
+      token = await this.getValidToken(tenantId);
+    } catch (e) {
+      return { ok: false, error: (e as Error).message, responseRedacted: { stage: 'auth', error: (e as Error).message } };
+    }
+    const itemId = Number(payload.shopee_item_id);
+    if (!itemId) {
+      return { ok: false, error: 'MISSING_SHOPEE_ITEM_ID', responseRedacted: { note: 'Tạo listing mới (add_item) chưa hỗ trợ; cần shopee_item_id của sản phẩm đã có trên Shopee.' } };
+    }
+    const results: Record<string, unknown> = {};
+    if (payload.price != null) {
+      const r = await this.adapter.updatePrice(token.shopId, token.accessToken, itemId, [{ original_price: Number(payload.price) }]);
+      results.price = r.ok ? 'updated' : `failed:${r.error}`;
+      if (!r.ok) return { ok: false, error: r.error, responseRedacted: results };
+    }
+    if (payload.stock != null) {
+      const r = await this.adapter.updateStock(token.shopId, token.accessToken, itemId, [{ seller_stock: [{ stock: Number(payload.stock) }] }]);
+      results.stock = r.ok ? 'updated' : `failed:${r.error}`;
+      if (!r.ok) return { ok: false, error: r.error, responseRedacted: results };
+    }
+    return { ok: true, externalReference: `shopee_item_${itemId}`, responseRedacted: { item_id: itemId, ...results } };
+  }
 }

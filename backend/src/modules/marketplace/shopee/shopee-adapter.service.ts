@@ -170,4 +170,45 @@ export class ShopeeAdapterService {
       query: { order_sn_list: orderSnList.slice(0, 50).join(',') },
     });
   }
+
+  // ---- Products (read) ----
+
+  /** List item ids in the shop (read-only). */
+  async getItemList(
+    shopId: string | number,
+    accessToken: string,
+    opts: { offset?: number; pageSize?: number; itemStatus?: string } = {},
+  ): Promise<ShopeeApiResult> {
+    return this.request('GET', '/api/v2/product/get_item_list', {
+      accessToken,
+      shopId,
+      query: { offset: opts.offset ?? 0, page_size: opts.pageSize ?? 50, item_status: opts.itemStatus ?? 'NORMAL' },
+    });
+  }
+
+  /** Base info for up to 50 item ids (read-only). */
+  async getItemBaseInfo(shopId: string | number, accessToken: string, itemIdList: number[]): Promise<ShopeeApiResult> {
+    return this.request('GET', '/api/v2/product/get_item_base_info', {
+      accessToken,
+      shopId,
+      query: { item_id_list: itemIdList.slice(0, 50).join(',') },
+    });
+  }
+
+  // ---- Products (write) — only reached via the Execution Gateway ----
+
+  /** Create a new listing. `item` is the Shopee add_item body. */
+  async addItem(shopId: string | number, accessToken: string, item: Record<string, unknown>): Promise<ShopeeApiResult> {
+    return this.request('POST', '/api/v2/product/add_item', { accessToken, shopId, body: item });
+  }
+
+  /** Update the price list for an existing item. */
+  async updatePrice(shopId: string | number, accessToken: string, itemId: number, priceList: Array<Record<string, unknown>>): Promise<ShopeeApiResult> {
+    return this.request('POST', '/api/v2/product/update_price', { accessToken, shopId, body: { item_id: itemId, price_list: priceList } });
+  }
+
+  /** Update the stock list for an existing item. */
+  async updateStock(shopId: string | number, accessToken: string, itemId: number, stockList: Array<Record<string, unknown>>): Promise<ShopeeApiResult> {
+    return this.request('POST', '/api/v2/product/update_stock', { accessToken, shopId, body: { item_id: itemId, stock_list: stockList } });
+  }
 }

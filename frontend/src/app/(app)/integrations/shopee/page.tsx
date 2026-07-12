@@ -1,11 +1,11 @@
 'use client';
 
-import { Badge, Button, Card, CardBody, ErrorState, LoadingState, PageHeader, StatCard } from '@/components/ui';
+import { Badge, Button, Card, CardBody, ErrorState, Input, Label, LoadingState, PageHeader, StatCard } from '@/components/ui';
 import { api, ApiError } from '@/lib/api';
 import { usePermissions } from '@/lib/roles';
 import { useApi } from '@/lib/use-api';
 import { formatDate, formatNumber } from '@/lib/utils';
-import { CheckCircle2, Link2, PackageSearch, RefreshCw, ShoppingBag, XCircle } from 'lucide-react';
+import { CheckCircle2, Download, Link2, PackageSearch, RefreshCw, ShoppingBag, Upload, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
@@ -78,6 +78,45 @@ function ShopeeInner() {
       setMsg({ tone: 'ok', text: `Đã lấy ${res.data.count} đơn trong ${res.data.window_days} ngày.` });
     } catch (e) {
       setMsg({ tone: 'err', text: e instanceof ApiError ? e.message : 'Đồng bộ đơn thất bại' });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const [pushForm, setPushForm] = useState({ product_id: '', shopee_item_id: '', price: '', stock: '' });
+
+  const importProducts = async () => {
+    setBusy('import');
+    setMsg(null);
+    try {
+      const res = await api.post('/marketplace/shopee/products/import');
+      setMsg({ tone: 'ok', text: `Nhập xong: ${res.data.imported} mới, ${res.data.updated} cập nhật (tổng ${res.data.count}).` });
+    } catch (e) {
+      setMsg({ tone: 'err', text: e instanceof ApiError ? e.message : 'Nhập sản phẩm thất bại' });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const push = async () => {
+    if (!pushForm.product_id) {
+      setMsg({ tone: 'err', text: 'Nhập Product ID nội bộ cần đẩy.' });
+      return;
+    }
+    setBusy('push');
+    setMsg(null);
+    try {
+      const body: any = { shopee_item_id: pushForm.shopee_item_id || undefined };
+      if (pushForm.price) body.price = Number(pushForm.price);
+      if (pushForm.stock) body.stock = Number(pushForm.stock);
+      const res = await api.post(`/marketplace/shopee/products/${pushForm.product_id}/push`, body);
+      const d = res.data.decision?.decision;
+      setMsg({
+        tone: 'ok',
+        text: `Đã tạo đề xuất đẩy (quyết định: ${d}). ${d === 'REQUIRE_APPROVAL' ? 'Vào "Phê duyệt" để duyệt, rồi "Đề xuất hành động" để Thực thi.' : ''}`,
+      });
+    } catch (e) {
+      setMsg({ tone: 'err', text: e instanceof ApiError ? e.message : 'Tạo đề xuất đẩy thất bại' });
     } finally {
       setBusy(null);
     }
@@ -177,6 +216,9 @@ SHOPEE_REDIRECT_URL=https://store.picklefund.uk/api/v1/marketplace/shopee/callba
                 <Button size="sm" loading={busy === 'sync'} disabled={!canOperate} onClick={sync}>
                   <PackageSearch className="h-4 w-4" /> Đồng bộ đơn (7 ngày)
                 </Button>
+                <Button variant="secondary" size="sm" loading={busy === 'import'} disabled={!canOperate} onClick={importProducts}>
+                  <Download className="h-4 w-4" /> Nhập sản phẩm
+                </Button>
                 <Button variant="danger" size="sm" loading={busy === 'disconnect'} disabled={!canManage} onClick={disconnect}>
                   Ngắt
                 </Button>
@@ -205,6 +247,46 @@ SHOPEE_REDIRECT_URL=https://store.picklefund.uk/api/v1/marketplace/shopee/callba
                 )}
               </div>
             )}
+          </CardBody>
+        </Card>
+      )}
+
+      {/* Đẩy giá/tồn lên Shopee — qua Compliance Gateway */}
+      {s.connected && (
+        <Card>
+          <CardBody className="space-y-4">
+            <div>
+              <h2 className="flex items-center gap-2 text-lg font-semibold text-ink-950">
+                <Upload className="h-4 w-4 text-brand-600" /> Đẩy giá / tồn lên Shopee
+              </h2>
+              <p className="text-sm text-ink-500">
+                Đây là hành động ghi ra sàn — sẽ tạo <b>đề xuất</b> đi qua Compliance Gateway (thường cần phê duyệt) trước khi thực thi. Không đẩy trực tiếp.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <Label htmlFor="pid">Product ID (nội bộ)</Label>
+                <Input id="pid" value={pushForm.product_id} onChange={(e) => setPushForm({ ...pushForm, product_id: e.target.value })} placeholder="uuid sản phẩm" />
+              </div>
+              <div>
+                <Label htmlFor="sid">Shopee item_id</Label>
+                <Input id="sid" value={pushForm.shopee_item_id} onChange={(e) => setPushForm({ ...pushForm, shopee_item_id: e.target.value })} placeholder="item_id trên Shopee" />
+              </div>
+              <div>
+                <Label htmlFor="pr">Giá mới (VND)</Label>
+                <Input id="pr" type="number" min="0" value={pushForm.price} onChange={(e) => setPushForm({ ...pushForm, price: e.target.value })} />
+              </div>
+              <div>
+                <Label htmlFor="st">Tồn kho mới</Label>
+                <Input id="st" type="number" min="0" value={pushForm.stock} onChange={(e) => setPushForm({ ...pushForm, stock: e.target.value })} />
+              </div>
+            </div>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-ink-400">MVP: cập nhật giá/tồn cho item đã có trên Shopee. Tạo listing mới (add_item) ở bản sau.</p>
+              <Button loading={busy === 'push'} disabled={!canOperate} onClick={push}>
+                <Upload className="h-4 w-4" /> Tạo đề xuất đẩy
+              </Button>
+            </div>
           </CardBody>
         </Card>
       )}

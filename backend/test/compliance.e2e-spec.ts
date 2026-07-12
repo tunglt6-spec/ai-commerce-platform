@@ -150,6 +150,25 @@ describe('Compliance & Policy Guard (e2e)', () => {
     expect(activated.body.data.status).toBe('ACTIVE');
   });
 
+  it('push_product routes through the gateway + executor and fails-closed without a Shopee connection', async () => {
+    const res = await propose(token1, {
+      agentId: 'product_ai',
+      actionType: 'push_product',
+      platform: 'shopee',
+      targetType: 'product',
+      targetId: productId,
+      payload: { product_id: productId, shopee_item_id: '123456', price: 120000, stock: 10 },
+    }).expect(201);
+    expect(res.body.data.proposal.status).toBe('APPROVAL_REQUIRED');
+    const approvalId = res.body.data.proposal.approvalRequestId;
+    // push_product is not a financial action -> requester (manager+) may approve.
+    await request(http).patch(`/api/v1/compliance/approvals/${approvalId}`).set(auth(token1)).send({ approved: true }).expect(200);
+    const exec = await request(http).post(`/api/v1/compliance/proposals/${res.body.data.proposal.id}/execute`).set(auth(token1)).expect(201);
+    // Executor runs but Shopee is not connected in CI -> fails closed (no fake success).
+    expect(exec.body.data.status).toBe('FAILED');
+    expect(exec.body.data.receiptId).toBeDefined();
+  });
+
   it('enforces tenant isolation on proposals', async () => {
     const res = await propose(token1, { agentId: 'content_ai', actionType: 'generate_content_draft', payload: { content: 'isolation test' } }).expect(201);
     await request(http).get(`/api/v1/compliance/proposals/${res.body.data.proposal.id}`).set(auth(token2)).expect(404);

@@ -4,6 +4,7 @@ import { RiskService } from './engine/risk.service';
 import { AgentPermissionService } from './services/agent-permission.service';
 import { AGENT_PERMISSION_DEFAULTS, UNKNOWN_AGENT_DEFAULT } from './services/agent-permission.defaults';
 import { payloadHash } from './util/payload-hash';
+import { ActionExecutorRegistry } from './services/action-executor.registry';
 import { ACTION, RISK } from './compliance.constants';
 
 describe('Compliance engine (unit, deterministic)', () => {
@@ -102,6 +103,19 @@ describe('Compliance engine (unit, deterministic)', () => {
     });
     it('unknown agent default is read-only', () => {
       expect(UNKNOWN_AGENT_DEFAULT.maximumRiskLevel).toBe(RISK.READ_ONLY);
+    });
+  });
+
+  describe('ActionExecutorRegistry', () => {
+    it('registers, finds, and reports handlers', async () => {
+      const reg = new ActionExecutorRegistry();
+      expect(reg.has('push_product')).toBe(false);
+      reg.register('push_product', async () => ({ ok: true, externalReference: 'x1' }));
+      expect(reg.has('push_product')).toBe(true);
+      const handler = reg.get('push_product')!;
+      const out = await handler({ tenantId: 't', proposalId: 'p', actionType: 'push_product', platform: 'shopee', payload: {} });
+      expect(out.ok).toBe(true);
+      expect(out.externalReference).toBe('x1');
     });
   });
 
