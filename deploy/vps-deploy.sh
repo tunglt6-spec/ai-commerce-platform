@@ -26,18 +26,15 @@ DOMAIN="$(grep -E '^DOMAIN=' "$ENV_FILE" | cut -d= -f2-)"
 DOMAIN="${DOMAIN:-store.picklefund.uk}"
 echo "    domain=$DOMAIN  compose=$COMPOSE_FILE"
 
-echo "==> [2/6] Build & start stack (no host ports)"
-# Build images SEQUENTIALLY before switching containers. On a small VPS (8GB)
-# building backend + frontend concurrently exhausts RAM and the TypeScript/Next
-# compile gets OOM-killed, producing an image with no dist/ (broken container).
-# We also intentionally do NOT `down` first: the currently-running containers keep
-# serving until the new images are ready, so a failed build never leaves us with
-# no working API. Named volumes + commerce-net are preserved.
-docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" build ai-commerce-api
-docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" build ai-commerce-web
-# Images are built; this step only recreates changed containers (fast, no compile).
+echo "==> [2/6] Pull prebuilt images from GHCR & start stack (no compile on VPS)"
+# Images are built + pushed by CI (GitHub runners). The VPS only PULLS them, so
+# there is no TypeScript/Next compile here — eliminates the small-VPS OOM/timeout.
+# IMAGE_TAG (the commit SHA) is exported by the deploy step; falls back to :latest.
+# We do NOT `down` first: current containers keep serving until new images are up.
+echo "    IMAGE_TAG=${IMAGE_TAG:-latest}"
+docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" pull ai-commerce-api ai-commerce-web
 docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d --remove-orphans
-docker builder prune -f >/dev/null 2>&1 || true
+docker image prune -f >/dev/null 2>&1 || true
 
 echo "==> [3/6] Wait for backend to be healthy (migrations run on boot)"
 for i in $(seq 1 40); do

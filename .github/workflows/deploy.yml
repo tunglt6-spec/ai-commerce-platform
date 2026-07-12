@@ -1,20 +1,26 @@
 name: Deploy
 
-# Same pattern as PickleFund: test -> SSH deploy to the VPS.
-# Configure these repo secrets (Settings -> Secrets and variables -> Actions):
-#   VPS_HOST      = 135.181.30.143
-#   VPS_USER      = root
-#   VPS_PASSWORD  = <VPS root password>
-#   VPS_PORT      = 22            (optional, defaults to 22)
-#   DEPLOY_PATH   = /opt/ai-commerce   (optional, defaults below)
-# One-time on the VPS: point the repo origin at GitHub so `git pull` works:
-#   cd /opt/ai-commerce && git remote set-url origin <GITHUB_URL> \
-#     && git fetch origin && git checkout -B main origin/main
+# Pipeline: test -> build+push images to GHCR -> SSH deploy (VPS only pulls).
+# Building on GitHub runners (ample RAM) removes the small-VPS OOM/timeout that
+# occurred when the VPS compiled images itself.
+#
+# Repo secrets (Settings -> Secrets and variables -> Actions):
+#   VPS_HOST, VPS_USER, VPS_PASSWORD, VPS_PORT (opt), DEPLOY_PATH (opt)
+# GHCR auth uses the built-in GITHUB_TOKEN (no extra secret needed).
+# One-time on the VPS: `docker login ghcr.io` is done by the deploy step below.
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_BASE: ghcr.io/${{ github.repository_owner }}
 
 jobs:
   test:
@@ -53,23 +59,65 @@ jobs:
         env:
           NEXT_PUBLIC_API_BASE_URL: http://localhost:3001/api/v1
 
-  deploy:
+  build:
     needs: test
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy to VPS over SSH
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build & push backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: backend/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_BASE }}/ai-commerce-backend:${{ github.sha }}
+            ${{ env.IMAGE_BASE }}/ai-commerce-backend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Build & push frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: frontend/Dockerfile
+          push: true
+          build-args: |
+            NEXT_PUBLIC_API_BASE_URL=https://store.picklefund.uk/api/v1
+          tags: |
+            ${{ env.IMAGE_BASE }}/ai-commerce-web:${{ github.sha }}
+            ${{ env.IMAGE_BASE }}/ai-commerce-web:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to VPS over SSH (pull prebuilt images)
         uses: appleboy/ssh-action@v1.2.0
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           password: ${{ secrets.VPS_PASSWORD }}
           port: ${{ secrets.VPS_PORT || 22 }}
-          # Sequential image builds on the small VPS can exceed the 10m default;
-          # allow up to 25m so the SSH step waits for the build instead of failing.
-          command_timeout: 25m
+          command_timeout: 15m
+          envs: IMAGE_TAG,GHCR_USER,GHCR_TOKEN
           script: |
             set -euo pipefail
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
             cd "${{ secrets.DEPLOY_PATH || '/opt/ai-commerce' }}"
             git fetch origin
             git reset --hard origin/main
+            export IMAGE_TAG="$IMAGE_TAG"
             bash deploy/vps-deploy.sh

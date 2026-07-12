@@ -32,9 +32,7 @@ services:
     networks: [commerce-net]
 
   ai-commerce-api:
-    build:
-      context: ..
-      dockerfile: backend/Dockerfile
+    image: ghcr.io/tunglt6-spec/ai-commerce-backend:${IMAGE_TAG:-latest}
     container_name: ai-commerce-api
     restart: always
     mem_limit: 768m
@@ -74,11 +72,8 @@ services:
     networks: [commerce-net]
 
   ai-commerce-web:
-    build:
-      context: ..
-      dockerfile: frontend/Dockerfile
-      args:
-        NEXT_PUBLIC_API_BASE_URL: https://${DOMAIN}/api/v1
+    # NEXT_PUBLIC_API_BASE_URL is baked at image build time in CI (build job).
+    image: ghcr.io/tunglt6-spec/ai-commerce-web:${IMAGE_TAG:-latest}
     container_name: ai-commerce-web
     restart: always
     mem_limit: 512m
