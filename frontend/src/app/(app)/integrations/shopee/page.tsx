@@ -5,7 +5,7 @@ import { api, ApiError } from '@/lib/api';
 import { usePermissions } from '@/lib/roles';
 import { useApi } from '@/lib/use-api';
 import { formatDate, formatNumber } from '@/lib/utils';
-import { CheckCircle2, Download, Link2, PackagePlus, PackageSearch, RefreshCw, ShoppingBag, Truck, Upload, XCircle } from 'lucide-react';
+import { CheckCircle2, Download, Link2, ListChecks, PackagePlus, PackageSearch, RefreshCw, ShoppingBag, Truck, Upload, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
@@ -137,6 +137,8 @@ function ShopeeInner() {
     condition: 'NEW',
   });
   const [logiSel, setLogiSel] = useState<Record<string, boolean>>({});
+  const [attrs, setAttrs] = useState<any[] | null>(null);
+  const [attrValues, setAttrValues] = useState<Record<string, { value_id?: number; text?: string }>>({});
 
   const loadRefs = async () => {
     setBusy('refs');
@@ -154,10 +156,55 @@ function ShopeeInner() {
     }
   };
 
+  const loadAttributes = async () => {
+    if (!createForm.category_id) {
+      setMsg({ tone: 'err', text: 'Nhập Category ID (lá) trước khi tải thuộc tính.' });
+      return;
+    }
+    setBusy('attrs');
+    setMsg(null);
+    try {
+      const res = await api.get(`/marketplace/shopee/listing-refs?category_id=${Number(createForm.category_id)}`);
+      const list = Array.isArray(res.data?.attributes) ? res.data.attributes : [];
+      setAttrs(list);
+      setAttrValues({});
+      const mand = list.filter((a: any) => a.is_mandatory).length;
+      setMsg({ tone: 'ok', text: `Đã tải ${list.length} thuộc tính (${mand} bắt buộc) cho danh mục ${createForm.category_id}.` });
+    } catch (e) {
+      setMsg({ tone: 'err', text: e instanceof ApiError ? e.message : 'Không tải được thuộc tính danh mục. Cần kết nối Shopee thật.' });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  // Dựng attribute_list đúng chuẩn add_item từ lựa chọn trên form.
+  const buildAttributeList = (): any[] | undefined => {
+    if (!attrs) return undefined;
+    const out: any[] = [];
+    for (const a of attrs) {
+      const v = attrValues[String(a.attribute_id)];
+      if (!v) continue;
+      if (v.value_id != null) {
+        const opt = (a.attribute_value_list ?? []).find((o: any) => o.value_id === v.value_id);
+        out.push({ attribute_id: a.attribute_id, attribute_value_list: [{ value_id: v.value_id, original_value_name: opt?.original_value_name ?? '', value_unit: opt?.value_unit ?? '' }] });
+      } else if (v.text && v.text.trim()) {
+        out.push({ attribute_id: a.attribute_id, attribute_value_list: [{ value_id: 0, original_value_name: v.text.trim(), value_unit: '' }] });
+      }
+    }
+    return out.length ? out : undefined;
+  };
+
   const createListing = async () => {
     if (!createForm.product_id || !createForm.category_id) {
       setMsg({ tone: 'err', text: 'Cần Product ID nội bộ và Category ID (lá) của Shopee.' });
       return;
+    }
+    if (attrs) {
+      const missing = attrs.filter((a: any) => a.is_mandatory && attrValues[String(a.attribute_id)]?.value_id == null && !attrValues[String(a.attribute_id)]?.text?.trim());
+      if (missing.length) {
+        setMsg({ tone: 'err', text: `Còn ${missing.length} thuộc tính bắt buộc chưa điền: ${missing.slice(0, 4).map((a: any) => a.original_attribute_name).join(', ')}${missing.length > 4 ? '…' : ''}` });
+        return;
+      }
     }
     const logistics = (refs?.logistics ?? [])
       .filter((l) => logiSel[String(l.logistics_channel_id)])
@@ -180,6 +227,8 @@ function ShopeeInner() {
       };
       const urls = createForm.image_urls.split(/[\n,]/).map((u) => u.trim()).filter(Boolean);
       if (urls.length) body.image_urls = urls;
+      const attributeList = buildAttributeList();
+      if (attributeList) body.attribute_list = attributeList;
       const res = await api.post(`/marketplace/shopee/products/${createForm.product_id}/create-listing`, body);
       const d = res.data.decision?.decision;
       setMsg({
@@ -469,8 +518,63 @@ SHOPEE_REDIRECT_URL=https://store.picklefund.uk/api/v1/marketplace/shopee/callba
               </div>
             )}
 
+            {/* Thuộc tính bắt buộc theo danh mục — tải động từ get_attributes */}
+            <div className="rounded-2xl border border-ink-100 bg-ink-50/40 p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-sm font-semibold text-ink-700">Thuộc tính theo ngành hàng</span>
+                <Button variant="secondary" size="sm" loading={busy === 'attrs'} disabled={!canOperate} onClick={loadAttributes}>
+                  <ListChecks className="h-4 w-4" /> Tải thuộc tính danh mục
+                </Button>
+              </div>
+              {attrs === null ? (
+                <p className="mt-2 text-xs text-ink-500">Nhập Category ID ở trên rồi bấm “Tải thuộc tính danh mục” để điền các thuộc tính bắt buộc (Shopee yêu cầu khác nhau theo ngành).</p>
+              ) : attrs.length === 0 ? (
+                <p className="mt-2 text-xs text-ink-500">Danh mục này không có thuộc tính (hoặc chưa lấy được). Có thể tạo listing không kèm thuộc tính.</p>
+              ) : (
+                <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {attrs.map((a: any) => {
+                    const id = String(a.attribute_id);
+                    const options: any[] = Array.isArray(a.attribute_value_list) ? a.attribute_value_list : [];
+                    const hasOptions = options.length > 0;
+                    return (
+                      <div key={id}>
+                        <label htmlFor={`attr-${id}`} className="mb-1.5 block text-xs font-semibold text-ink-700">
+                          {a.original_attribute_name}
+                          {a.is_mandatory && <span className="text-rose-500"> *</span>}
+                          {a.input_type === 'MULTIPLE_SELECT' && <span className="ml-1 text-ink-400">(chọn 1)</span>}
+                        </label>
+                        {hasOptions ? (
+                          <select
+                            id={`attr-${id}`}
+                            value={attrValues[id]?.value_id ?? ''}
+                            onChange={(e) => setAttrValues({ ...attrValues, [id]: { value_id: e.target.value ? Number(e.target.value) : undefined } })}
+                            className="w-full rounded-xl border border-ink-200 bg-white px-3 py-2 text-sm text-ink-900 focus:border-brand-400 focus:outline-none"
+                          >
+                            <option value="">— chọn —</option>
+                            {options.map((o: any) => (
+                              <option key={o.value_id} value={o.value_id}>
+                                {o.original_value_name}
+                                {o.value_unit ? ` ${o.value_unit}` : ''}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <Input
+                            id={`attr-${id}`}
+                            value={attrValues[id]?.text ?? ''}
+                            onChange={(e) => setAttrValues({ ...attrValues, [id]: { text: e.target.value } })}
+                            placeholder="nhập giá trị"
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
             <div className="flex items-center justify-between">
-              <p className="text-xs text-ink-400">Danh mục &amp; thuộc tính bắt buộc khác nhau theo ngành hàng — nếu Shopee báo thiếu thuộc tính khi thực thi, bổ sung qua listing-refs.</p>
+              <p className="text-xs text-ink-400">Ảnh được upload và <code className="rounded bg-ink-100 px-1">add_item</code> chỉ chạy khi Thực thi sau phê duyệt. Thuộc tính bắt buộc (*) phải điền đủ.</p>
               <Button loading={busy === 'create'} disabled={!canOperate} onClick={createListing}>
                 <PackagePlus className="h-4 w-4" /> Tạo đề xuất listing
               </Button>
