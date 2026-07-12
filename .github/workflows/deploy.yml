@@ -115,7 +115,9 @@ jobs:
           envs: IMAGE_TAG,GHCR_USER,GHCR_TOKEN
           script: |
             set -euo pipefail
-            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+            # Images are public on GHCR, so login is optional (best-effort for
+            # future private use); a login failure must not abort the deploy.
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin || echo "(GHCR login skipped — images are public)"
             cd "${{ secrets.DEPLOY_PATH || '/opt/ai-commerce' }}"
             git fetch origin
             git reset --hard origin/main
