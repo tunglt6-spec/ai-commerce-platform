@@ -63,7 +63,12 @@ if ! grep -q 'include /etc/nginx/conf.d/\*.conf;' "$PICKLEFUND_NGINX_DIR/nginx.c
   sed -i 's#include mime.types;#include mime.types;\n  include /etc/nginx/conf.d/*.conf;#' "$PICKLEFUND_NGINX_DIR/nginx.conf"
   echo "    added include conf.d/*.conf to host nginx.conf"
 fi
-docker cp "$REPO_DIR/deploy/nginx-commerce.conf" "$NGINX_CONTAINER:/etc/nginx/conf.d/commerce.conf"
+# If commerce.conf is bind-mounted into picklefund-nginx (the durable hardening in
+# PickleFund's docker-compose.override.yml), `docker cp` fails with "device or
+# resource busy" — and is unnecessary, since `git reset` already updated the host
+# file the mount points at. So the copy is best-effort (covers the non-mounted case).
+docker cp "$REPO_DIR/deploy/nginx-commerce.conf" "$NGINX_CONTAINER:/etc/nginx/conf.d/commerce.conf" 2>/dev/null \
+  || echo "    commerce.conf is bind-mounted (host file updated via git) — skipping docker cp"
 docker exec "$NGINX_CONTAINER" rm -f /etc/nginx/conf.d/default.conf 2>/dev/null || true
 
 if docker exec "$NGINX_CONTAINER" grep -q 'include /etc/nginx/conf.d/\*.conf;' /etc/nginx/nginx.conf; then
