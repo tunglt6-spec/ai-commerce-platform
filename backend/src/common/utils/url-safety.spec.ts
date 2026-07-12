@@ -44,5 +44,21 @@ describe('SSRF url-safety guard', () => {
       expect(await isSafeExternalUrl('http://127.0.0.1')).toBe(false);
       expect(await isSafeExternalUrl('https://1.1.1.1')).toBe(true);
     });
+
+    it('honors SSRF_ALLOWED_HOSTS allow-list (empty in prod) but still enforces scheme/credentials', async () => {
+      const prev = process.env.SSRF_ALLOWED_HOSTS;
+      process.env.SSRF_ALLOWED_HOSTS = '127.0.0.1,localhost';
+      try {
+        await expect(assertSafeExternalUrl('http://127.0.0.1:9999/verify')).resolves.toBeUndefined();
+        await expect(assertSafeExternalUrl('http://localhost/webhook')).resolves.toBeUndefined();
+        // Not on the list → still blocked.
+        await expect(assertSafeExternalUrl('http://169.254.169.254/')).rejects.toThrow('SSRF_BLOCKED');
+        // Scheme/credential checks apply even to allow-listed hosts.
+        await expect(assertSafeExternalUrl('http://user:pass@127.0.0.1/')).rejects.toThrow('SSRF_BLOCKED');
+      } finally {
+        if (prev === undefined) delete process.env.SSRF_ALLOWED_HOSTS;
+        else process.env.SSRF_ALLOWED_HOSTS = prev;
+      }
+    });
   });
 });

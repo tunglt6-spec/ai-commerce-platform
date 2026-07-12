@@ -83,6 +83,16 @@ export async function assertSafeExternalUrl(rawUrl: string): Promise<void> {
     throw new Error('SSRF_BLOCKED: credentials in URL not allowed');
   }
   const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+
+  // Explicit allow-list escape hatch — EMPTY in production. Only used by local
+  // integration tests that point verify_url/webhook_url at a 127.0.0.1 mock server.
+  // Scheme + credential checks above still apply to allow-listed hosts.
+  const allow = (process.env.SSRF_ALLOWED_HOSTS ?? '')
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  if (allow.includes(host)) return;
+
   if (BLOCKED_HOSTNAMES.has(host) || host.endsWith('.localhost') || host.endsWith('.internal')) {
     throw new Error('SSRF_BLOCKED: disallowed host');
   }

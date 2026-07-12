@@ -48,6 +48,10 @@ describe('Increment 4 (e2e)', () => {
     await new Promise<void>((resolve) => receiver.listen(0, resolve));
     receiverPort = (receiver.address() as any).port;
 
+    // The SSRF egress guard blocks loopback by default; allow-list the local mock
+    // receiver so this test can exercise the real verify/webhook HTTP path.
+    process.env.SSRF_ALLOWED_HOSTS = '127.0.0.1,localhost';
+
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication<NestExpressApplication>();
     app.setGlobalPrefix('api/v1');
@@ -67,6 +71,7 @@ describe('Increment 4 (e2e)', () => {
   });
 
   afterAll(async () => {
+    delete process.env.SSRF_ALLOWED_HOSTS; // don't leak the allow-list into other specs
     await app.close();
     await new Promise<void>((resolve) => receiver.close(() => resolve()));
   });
