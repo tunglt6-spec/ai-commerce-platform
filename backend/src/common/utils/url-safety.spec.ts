@@ -6,7 +6,10 @@ describe('SSRF url-safety guard', () => {
       'blocks private/loopback/link-local IPv4 %s',
       (ip) => expect(isPrivateAddress(ip)).toBe(true),
     );
-    it.each(['8.8.8.8', '1.1.1.1', '203.0.113.10'])('allows public IPv4 %s', (ip) => expect(isPrivateAddress(ip)).toBe(false));
+    it.each(['8.8.8.8', '1.1.1.1', '93.184.216.34'])('allows public IPv4 %s', (ip) => expect(isPrivateAddress(ip)).toBe(false));
+    it('blocks reserved/documentation ranges (198.18/15, 192.0.0/24, 203.0.113/24 TEST-NET)', () => {
+      ['198.18.0.1', '192.0.0.1', '203.0.113.10', '240.0.0.1'].forEach((ip) => expect(isPrivateAddress(ip)).toBe(true));
+    });
     it.each(['::1', 'fe80::1', 'fd00::1', 'fc00::abcd'])('blocks loopback/link-local/ULA IPv6 %s', (ip) =>
       expect(isPrivateAddress(ip)).toBe(true),
     );
@@ -17,6 +20,8 @@ describe('SSRF url-safety guard', () => {
       '::7f00:1', // ::127.0.0.1 IPv4-compatible
       '::ffff:c0a8:1', // ::ffff:192.168.0.1
     ])('blocks IPv4-mapped/compat IPv6 in HEX form %s', (ip) => expect(isPrivateAddress(ip)).toBe(true));
+    it('blocks the UNCOMPRESSED mapped form some resolvers return', () =>
+      expect(isPrivateAddress('0:0:0:0:0:ffff:7f00:1')).toBe(true)); // ::ffff:127.0.0.1
     it('allows a mapped PUBLIC v4 in hex form', () => expect(isPrivateAddress('::ffff:0808:0808')).toBe(false)); // 8.8.8.8
   });
 

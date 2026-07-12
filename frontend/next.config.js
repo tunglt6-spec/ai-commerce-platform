@@ -11,7 +11,9 @@ const CSP = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
-  "connect-src 'self' https:",
+  // API is same-origin; keep connect-src tight so an XSS cannot exfiltrate to an
+  // arbitrary https host. Add explicit trusted origins here if cross-origin calls appear.
+  "connect-src 'self'",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",

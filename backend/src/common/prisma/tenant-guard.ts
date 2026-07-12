@@ -49,27 +49,36 @@ export const TENANT_SCOPED_MODELS = new Set<string>([
  */
 const ENFORCED_ACTIONS = new Set(['findMany', 'updateMany', 'deleteMany', 'count', 'aggregate', 'groupBy']);
 
-/** Recursively check whether a Prisma `where` constrains `tenantId` (top-level or via AND/OR). */
-export function whereHasTenantScope(where: unknown, depth = 0): boolean {
+/**
+ * Whether a Prisma `where` constrains the query to EXACTLY `tenantId` — verifying the
+ * VALUE, not just the presence of the key (so a user-supplied `tenantId` for another
+ * tenant does not satisfy it). Recognises a scalar `tenantId` at the top level or inside
+ * an AND (which further restricts). A `tenantId` nested only inside an OR is ignored — an
+ * OR branch does not constrain the whole query (other branches could match other tenants),
+ * so it fails closed. A non-scalar `tenantId` (operator object like {in}/{not}) is not a
+ * legitimate scoping pattern here and also fails closed.
+ */
+export function whereScopesToTenant(where: unknown, tenantId: string, depth = 0): boolean {
   if (!where || typeof where !== 'object' || depth > 5) return false;
   const w = where as Record<string, unknown>;
-  if (Object.prototype.hasOwnProperty.call(w, 'tenantId')) return true;
-  for (const key of ['AND', 'OR'] as const) {
-    const v = w[key];
-    if (Array.isArray(v)) {
-      if (v.some((sub) => whereHasTenantScope(sub, depth + 1))) return true;
-    } else if (v && whereHasTenantScope(v, depth + 1)) {
-      return true;
-    }
+  if (Object.prototype.hasOwnProperty.call(w, 'tenantId')) {
+    return typeof w.tenantId === 'string' && w.tenantId === tenantId;
   }
+  const and = w.AND;
+  if (Array.isArray(and)) return and.some((sub) => whereScopesToTenant(sub, tenantId, depth + 1));
+  if (and && typeof and === 'object') return whereScopesToTenant(and, tenantId, depth + 1);
   return false;
 }
 
 /**
- * Decide whether a query must be blocked. Fail-closed for tenant-scoped list/bulk ops
- * issued inside an authenticated, non-platform-admin request that lacks a tenant filter.
- * Allows: non-tenant models, system/startup (no tenant in context), platform admins,
- * explicit bypass, and single-record ops (findUnique/create/etc. not in ENFORCED_ACTIONS).
+ * Decide whether a query must be blocked (fail-closed). Blocks a tenant-scoped set-op
+ * unless it is verifiably constrained to the CALLER'S tenant. Allows only:
+ *  - non-tenant models,
+ *  - true system context: no request store (startup/cron) OR explicit bypass
+ *    (runWithoutTenantGuard), OR a platform admin,
+ *  - single-record ops (findUnique/findFirst/create/… not in ENFORCED_ACTIONS).
+ * An authenticated request must scope to its own tenant; an UNAUTHENTICATED request
+ * (store present, tenantId null, no bypass) cannot scope at all → blocked.
  */
 export function shouldBlockQuery(
   model: string | undefined,
@@ -78,7 +87,8 @@ export function shouldBlockQuery(
   store: TenantStore | undefined,
 ): boolean {
   if (!model || !TENANT_SCOPED_MODELS.has(model)) return false;
-  if (!store || store.bypass || store.isPlatformAdmin || store.tenantId == null) return false;
+  if (!store || store.bypass || store.isPlatformAdmin) return false;
   if (!ENFORCED_ACTIONS.has(action)) return false;
-  return !whereHasTenantScope(args?.where);
+  if (store.tenantId == null) return true; // authenticated context required to scope
+  return !whereScopesToTenant(args?.where, store.tenantId);
 }
