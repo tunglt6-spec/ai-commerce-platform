@@ -64,6 +64,9 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           password: ${{ secrets.VPS_PASSWORD }}
           port: ${{ secrets.VPS_PORT || 22 }}
+          # Sequential image builds on the small VPS can exceed the 10m default;
+          # allow up to 25m so the SSH step waits for the build instead of failing.
+          command_timeout: 25m
           script: |
             set -euo pipefail
             cd "${{ secrets.DEPLOY_PATH || '/opt/ai-commerce' }}"
