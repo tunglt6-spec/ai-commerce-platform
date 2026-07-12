@@ -1,5 +1,7 @@
 import { INestApplication, Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
+import { getTenantStore } from '../context/tenant-context';
+import { shouldBlockQuery } from './tenant-guard';
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit {
@@ -11,6 +13,16 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
         { level: 'warn', emit: 'event' },
         { level: 'error', emit: 'event' },
       ],
+    });
+
+    // Second tenant-isolation layer (defense-in-depth): fail-closed on a tenant-scoped
+    // list/bulk query that lacks a tenant filter inside an authenticated request.
+    this.$use(async (params, next) => {
+      if (shouldBlockQuery(params.model, params.action, params.args, getTenantStore())) {
+        this.logger.error(`TENANT_GUARD blocked ${params.model}.${params.action} without tenantId scope`);
+        throw new Error(`TENANT_GUARD: ${params.model}.${params.action} requires a tenantId filter`);
+      }
+      return next(params);
     });
   }
 

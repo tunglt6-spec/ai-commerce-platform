@@ -4,6 +4,7 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { AuthenticatedUser } from '../../../common/types/authenticated-user';
 import { isRole } from '../../../common/constants/roles';
+import { setTenant } from '../../../common/context/tenant-context';
 
 export interface JwtPayload {
   sub: string;
@@ -31,6 +32,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     if (!isRole(payload.role)) {
       throw new UnauthorizedException('Invalid role in token');
     }
+    // Populate the request-scoped tenant context for the Prisma tenant guard.
+    setTenant(payload.tenantId, !!payload.isPlatformAdmin);
     return {
       userId: payload.sub,
       tenantId: payload.tenantId,

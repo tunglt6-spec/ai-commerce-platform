@@ -1,5 +1,6 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { TenantContextMiddleware } from './common/context/tenant-context.middleware';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ProxyThrottlerGuard } from './common/guards/proxy-throttler.guard';
@@ -96,4 +97,9 @@ import { MarketplaceModule } from './modules/marketplace/marketplace.module';
     { provide: APP_GUARD, useClass: RolesGuard },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    // Establish the request-scoped tenant context for every route (before guards run).
+    consumer.apply(TenantContextMiddleware).forRoutes('*');
+  }
+}
