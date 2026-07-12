@@ -57,6 +57,10 @@ services:
       AI_MODEL_DEFAULT: ${AI_MODEL_DEFAULT:-gemini-flash}
       AI_MODEL_CONTENT: ${AI_MODEL_CONTENT:-qwen-3}
       AI_MODEL_STRATEGY: ${AI_MODEL_STRATEGY:-claude-sonnet}
+      SHOPEE_PARTNER_ID: ${SHOPEE_PARTNER_ID:-}
+      SHOPEE_PARTNER_KEY: ${SHOPEE_PARTNER_KEY:-}
+      SHOPEE_API_BASE: ${SHOPEE_API_BASE:-https://partner.shopeemobile.com}
+      SHOPEE_REDIRECT_URL: ${SHOPEE_REDIRECT_URL:-https://store.picklefund.uk/api/v1/marketplace/shopee/callback}
     volumes:
       - aic_uploads:/app/backend/uploads
     healthcheck:

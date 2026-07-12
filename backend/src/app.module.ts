@@ -36,6 +36,7 @@ import { UploadsModule } from './modules/uploads/uploads.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { TenantModule } from './modules/tenant/tenant.module';
 import { ComplianceModule } from './modules/compliance/compliance.module';
+import { MarketplaceModule } from './modules/marketplace/marketplace.module';
 
 @Module({
   imports: [
@@ -78,6 +79,7 @@ import { ComplianceModule } from './modules/compliance/compliance.module';
     ReportsModule,
     TenantModule,
     ComplianceModule,
+    MarketplaceModule,
   ],
   providers: [
     Reflector,

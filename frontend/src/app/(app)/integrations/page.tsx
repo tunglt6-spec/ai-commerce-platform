@@ -4,7 +4,8 @@ import { Badge, Button, Card, CardBody, ErrorState, Input, Label, LoadingState, 
 import { api, ApiError } from '@/lib/api';
 import { useApi } from '@/lib/use-api';
 import { usePermissions } from '@/lib/roles';
-import { Plug } from 'lucide-react';
+import { ChevronRight, Plug, ShoppingBag } from 'lucide-react';
+import Link from 'next/link';
 import { useState } from 'react';
 
 const STATUS_TONE: Record<string, string> = {
@@ -58,6 +59,23 @@ export default function IntegrationsPage() {
         title="Tích hợp"
         description="Kết nối kênh bán, thanh toán và vận chuyển với bảo mật khoá được mã hoá."
       />
+
+      <Link href="/integrations/shopee">
+        <Card className="group transition duration-200 hover:-translate-y-0.5 hover:shadow-panel">
+          <CardBody className="flex items-center gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-brand-600">
+              <ShoppingBag className="h-6 w-6" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="flex items-center gap-2 text-sm font-semibold text-ink-900">
+                Shopee — kết nối marketplace thật <Badge tone="active">OAuth v2</Badge>
+              </p>
+              <p className="text-xs text-ink-500">Cấp quyền cửa hàng qua Shopee Open Platform + đồng bộ đơn hàng thật (read-only).</p>
+            </div>
+            <ChevronRight className="h-5 w-5 shrink-0 text-ink-300 transition group-hover:text-brand-600" />
+          </CardBody>
+        </Card>
+      </Link>
 
       {msg && <div className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{msg}</div>}
 

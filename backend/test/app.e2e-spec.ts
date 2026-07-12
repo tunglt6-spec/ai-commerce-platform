@@ -246,6 +246,14 @@ describe('AI Commerce Platform (e2e)', () => {
     expect(typeof res.body.data.configured).toBe('boolean');
   });
 
+  it('shopee marketplace: reports not-configured and refuses auth-url without partner creds', async () => {
+    const s = await request(http).get('/api/v1/marketplace/shopee/status').set('Authorization', `Bearer ${t1Token}`).expect(200);
+    expect(s.body.data.configured).toBe(false);
+    expect(s.body.data.connected).toBe(false);
+    // No SHOPEE_PARTNER_ID/KEY in CI -> auth-url is refused (no fake success).
+    await request(http).get('/api/v1/marketplace/shopee/auth-url').set('Authorization', `Bearer ${t1Token}`).expect(400);
+  });
+
   it('change-password: new works, old rejected, wrong current rejected', async () => {
     const email = `pw_${rnd}@x.com`;
     await request(http).post('/api/v1/auth/register').send({ email, username: `pw_${rnd}`, password: 'OldPass1!' }).expect(201);
