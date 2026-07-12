@@ -8,6 +8,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { buildOrderBy, paginate } from '../../common/dto/pagination.dto';
 import { buildOrderNumber } from '../../common/utils/order-number';
+import { runWithoutTenantGuard } from '../../common/context/tenant-context';
 import { CreateOrderDto, CreateShipmentDto, OrderQueryDto } from './dto/order.dto';
 import { IntegrationsService } from '../integrations/integrations.service';
 
@@ -266,9 +267,11 @@ export class OrdersService {
     const now = new Date();
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     for (let attempt = 0; attempt < 5; attempt++) {
-      const dailyCount = await this.prisma.order.count({
-        where: { createdAt: { gte: startOfDay } },
-      });
+      // Global daily sequence for the globally-unique orderNumber — intentionally
+      // cross-tenant, so it runs outside the tenant guard.
+      const dailyCount = await runWithoutTenantGuard(() =>
+        this.prisma.order.count({ where: { createdAt: { gte: startOfDay } } }),
+      );
       const orderNumber = buildOrderNumber(dailyCount + 1 + attempt, now);
       try {
         return await fn(orderNumber);

@@ -17,10 +17,18 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
 
     // Second tenant-isolation layer (defense-in-depth): fail-closed on a tenant-scoped
     // list/bulk query that lacks a tenant filter inside an authenticated request.
+    // TENANT_GUARD_MODE: 'enforce' (default, fail-closed) or 'monitor' (log only — for a
+    // safe production rollout: observe logs for false positives before enforcing).
+    const monitorOnly = (process.env.TENANT_GUARD_MODE ?? 'enforce').toLowerCase() === 'monitor';
     this.$use(async (params, next) => {
       if (shouldBlockQuery(params.model, params.action, params.args, getTenantStore())) {
-        this.logger.error(`TENANT_GUARD blocked ${params.model}.${params.action} without tenantId scope`);
-        throw new Error(`TENANT_GUARD: ${params.model}.${params.action} requires a tenantId filter`);
+        const msg = `TENANT_GUARD ${params.model}.${params.action} without tenantId scope`;
+        if (monitorOnly) {
+          this.logger.warn(`[monitor] ${msg} (allowed — set TENANT_GUARD_MODE=enforce to block)`);
+        } else {
+          this.logger.error(`blocked ${msg}`);
+          throw new Error(`TENANT_GUARD: ${params.model}.${params.action} requires a tenantId filter`);
+        }
       }
       return next(params);
     });
