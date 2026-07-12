@@ -56,16 +56,16 @@ export default function AgentDetailPage({ params }: { params: { agent: string } 
         <ArrowLeft className="h-4 w-4" /> AI Teammate
       </Link>
 
-      <div className="relative overflow-hidden rounded-[1.75rem] border border-ink-900/10 bg-ink-900 px-5 py-6 text-white shadow-panel sm:px-7">
-        <div className="absolute inset-0 bg-grid bg-[length:28px_28px] opacity-35" />
-        <div className="absolute -right-20 -top-24 h-64 w-64 rounded-full bg-brand-400/25 blur-3xl" />
+      <div className="relative overflow-hidden rounded-[1.75rem] border border-white/15 bg-gradient-ai px-5 py-6 text-white shadow-panel sm:px-7">
+        <div className="absolute inset-0 bg-grid bg-[length:28px_28px] opacity-20" />
+        <div className="absolute -right-20 -top-24 h-64 w-64 rounded-full bg-white/20 blur-3xl" />
         <div className="relative flex items-center gap-4">
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white/10 text-brand-200">
-            <Icon className="h-7 w-7" />
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white/15 text-white">
+            <Icon className="h-7 w-7" aria-hidden />
           </div>
           <div>
             <h1 className="text-2xl font-semibold text-white sm:text-3xl">{meta.name}</h1>
-            <p className="mt-1 text-sm text-ink-100/82">{meta.desc}</p>
+            <p className="mt-1 text-sm text-white/85">{meta.desc}</p>
           </div>
         </div>
       </div>

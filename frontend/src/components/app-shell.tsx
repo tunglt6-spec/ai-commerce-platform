@@ -58,7 +58,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   if (!hydrated || !accessToken) {
     return (
-      <div className="flex min-h-[100dvh] items-center justify-center bg-ink-950 text-sm text-ink-200">
+      <div className="flex min-h-[100dvh] items-center justify-center bg-ink-50 text-sm text-ink-500">
         Đang mở phiên làm việc
       </div>
     );
@@ -84,7 +84,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </a>
 
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-[276px] p-3 lg:block">
-        <div className="flex h-full flex-col rounded-[1.75rem] border border-ink-900/10 bg-ink-950 text-white shadow-panel">
+        <div className="flex h-full flex-col rounded-[1.75rem] border border-ink-200 bg-white text-ink-900 shadow-panel">
           <SidebarContent pathname={pathname} role={user?.role} />
         </div>
       </aside>
@@ -92,16 +92,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {mobileOpen && (
         <div className="fixed inset-0 z-40 lg:hidden">
           <button
-            className="absolute inset-0 bg-ink-950/50 backdrop-blur-sm"
+            className="absolute inset-0 bg-ink-900/45 backdrop-blur-sm"
             onClick={() => setMobileOpen(false)}
             aria-label="Đóng menu"
           />
           <aside className="absolute inset-y-0 left-0 flex w-[286px] flex-col p-3">
-            <div className="flex h-full flex-col rounded-[1.75rem] border border-white/10 bg-ink-950 text-white shadow-panel">
+            <div className="flex h-full flex-col rounded-[1.75rem] border border-ink-200 bg-white text-ink-900 shadow-panel">
               <div className="flex justify-end p-3">
                 <button
                   onClick={() => setMobileOpen(false)}
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl text-ink-200 hover:bg-white/10"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl text-ink-500 hover:bg-ink-100 hover:text-ink-900"
                   aria-label="Đóng menu"
                 >
                   <X className="h-5 w-5" />
@@ -237,12 +237,12 @@ function SidebarContent({
     <>
       <div className="px-4 pb-4 pt-5">
         <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-400 text-ink-950 shadow-[0_12px_34px_rgba(85,170,134,.32)]">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-ai text-white shadow-[0_10px_28px_rgba(124,58,237,.30)]">
             <Bot className="h-5 w-5" />
           </div>
           <div>
-            <p className="text-base font-semibold leading-tight">AI Commerce</p>
-            <p className="text-xs text-ink-300">Teammate OS</p>
+            <p className="text-base font-semibold leading-tight text-ink-900">AI Commerce</p>
+            <p className="text-xs text-ink-500">Teammate OS</p>
           </div>
         </div>
       </div>
@@ -258,27 +258,29 @@ function SidebarContent({
               className={cn(
                 'group flex items-center gap-3 rounded-2xl px-3 py-3 text-sm font-semibold transition duration-200',
                 active
-                  ? 'bg-white text-ink-950 shadow-[0_14px_30px_rgba(0,0,0,.22)]'
-                  : 'text-ink-200 hover:bg-white/[0.08] hover:text-white',
+                  ? 'bg-brand-50 text-brand-700 ring-1 ring-brand-100'
+                  : 'text-ink-600 hover:bg-ink-100 hover:text-ink-900',
               )}
             >
               <span
                 className={cn(
                   'flex h-8 w-8 items-center justify-center rounded-xl transition',
-                  active ? 'bg-brand-100 text-brand-800' : 'bg-white/[0.08] text-ink-300 group-hover:bg-white/[0.12] group-hover:text-white',
+                  active
+                    ? 'bg-brand-100 text-brand-700'
+                    : 'bg-ink-100 text-ink-500 group-hover:bg-ink-200 group-hover:text-ink-700',
                 )}
               >
-                <Icon className="h-[17px] w-[17px]" />
+                <Icon className="h-[17px] w-[17px]" aria-hidden />
               </span>
               <span className="min-w-0 flex-1 truncate">{item.label}</span>
-              {active && <ChevronRight className="h-4 w-4 text-brand-700" />}
+              {active && <ChevronRight className="h-4 w-4 text-brand-600" aria-hidden />}
             </Link>
           );
         })}
       </nav>
-      <div className="m-3 rounded-2xl border border-white/10 bg-white/[0.08] p-4">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-300">MVP 0.1.0</p>
-        <p className="mt-2 text-xs leading-5 text-ink-200">Ưu tiên bán thật, đo thật, tối ưu bằng AI sau mỗi vòng dữ liệu.</p>
+      <div className="m-3 rounded-2xl border border-ink-200 bg-ink-50 p-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-500">MVP 0.1.0</p>
+        <p className="mt-2 text-xs leading-5 text-ink-600">Ưu tiên bán thật, đo thật, tối ưu bằng AI sau mỗi vòng dữ liệu.</p>
       </div>
     </>
   );

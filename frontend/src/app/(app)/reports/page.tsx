@@ -96,7 +96,7 @@ export default function ReportsPage() {
             onClick={() => setTab(t.key)}
             className={
               'rounded-xl px-4 py-2 text-sm font-semibold transition ' +
-              (tab === t.key ? 'bg-ink-900 text-white shadow-card' : 'text-ink-500 hover:text-ink-900')
+              (tab === t.key ? 'bg-brand-600 text-white shadow-card' : 'text-ink-500 hover:text-ink-900')
             }
           >
             {t.label}
