@@ -21,6 +21,15 @@
 #     (never commit the URL; set it in the root env or on the cron line).
 set -u
 
+# Optional secrets/config file (keep SMTP creds OUT of git and out of the crontab line).
+# Create it chmod 600 on the VPS, e.g. /etc/aicp-disk-alert.env with:
+#   ALERT_EMAIL=tunglt6@gmail.com
+#   SMTP_USER=your@gmail.com
+#   SMTP_PASS=<16-char Gmail App Password>
+ENV_FILE="${DISK_ALERT_ENV:-/etc/aicp-disk-alert.env}"
+# shellcheck disable=SC1090
+[ -f "$ENV_FILE" ] && . "$ENV_FILE"
+
 WARN="${DISK_WARN:-85}"
 CRIT="${DISK_CRIT:-92}"
 MOUNT="${DISK_MOUNT:-/}"
@@ -28,7 +37,27 @@ WEBHOOK="${DISK_ALERT_WEBHOOK:-}"
 LOG="${DISK_ALERT_LOG:-/var/log/aicp-disk-alert.log}"
 HOST="$(hostname 2>/dev/null || echo vps)"
 
+# Email (via curl SMTP; no MTA needed). All optional — set in $ENV_FILE.
+ALERT_EMAIL="${ALERT_EMAIL:-}"
+SMTP_HOST="${SMTP_HOST:-smtp.gmail.com}"
+SMTP_PORT="${SMTP_PORT:-465}"
+SMTP_USER="${SMTP_USER:-}"
+SMTP_PASS="${SMTP_PASS:-}"
+SMTP_FROM="${SMTP_FROM:-${SMTP_USER:-}}"
+
 disk_pct() { df --output=pcent "$MOUNT" 2>/dev/null | tail -1 | tr -dc '0-9'; }
+
+send_email() {
+  local subject="$1" body="$2" msg
+  [ -n "$ALERT_EMAIL" ] && [ -n "$SMTP_USER" ] && [ -n "$SMTP_PASS" ] || return 0
+  command -v curl >/dev/null 2>&1 || return 0
+  msg="$(printf 'From: AICP Disk Alert <%s>\r\nTo: %s\r\nSubject: %s\r\nDate: %s\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n%s\r\n' \
+    "$SMTP_FROM" "$ALERT_EMAIL" "$subject" "$(date -R 2>/dev/null || date)" "$body")"
+  printf '%s' "$msg" | curl -fsS -m 20 --url "smtps://${SMTP_HOST}:${SMTP_PORT}" --ssl-reqd \
+    --mail-from "$SMTP_FROM" --mail-rcpt "$ALERT_EMAIL" \
+    --user "${SMTP_USER}:${SMTP_PASS}" -T - >/dev/null 2>&1 \
+    || echo "(disk-alert: email send failed — check SMTP creds / Gmail App Password)"
+}
 
 notify() {
   local level="$1" msg="$2" line
@@ -42,6 +71,7 @@ notify() {
       -d "{\"text\":\"[AICP disk ${level}] ${HOST} ${MOUNT} ${msg}\",\"content\":\"[AICP disk ${level}] ${HOST} ${MOUNT} ${msg}\"}" \
       "$WEBHOOK" >/dev/null 2>&1 || echo "(disk-alert: webhook post failed)"
   fi
+  send_email "[AICP disk ${level}] ${HOST} — disk ${MOUNT}" "$line"
 }
 
 reclaim() {
