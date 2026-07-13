@@ -42,6 +42,11 @@ load_env "$ALERT_ENV"   # TELEGRAM_* / SMTP_* / DISK_ALERT_WEBHOOK
 RCLONE_REMOTE="${BACKUP_RCLONE_REMOTE:-}"
 RCLONE_KEEP_DAYS="${BACKUP_RCLONE_KEEP_DAYS:-0}"  # >0 = also delete remote dumps older than N days
 
+# Offsite via Telegram: send the dump file itself to the chat (simplest offsite; no rclone).
+# Enable with BACKUP_TELEGRAM_FILE=1 in $ALERT_ENV. Telegram bot upload cap is 50MB.
+BACKUP_TELEGRAM_FILE="${BACKUP_TELEGRAM_FILE:-0}"
+TELEGRAM_MAX_MB="${BACKUP_TELEGRAM_MAX_MB:-45}"
+
 TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-}"; TELEGRAM_CHAT_ID="${TELEGRAM_CHAT_ID:-}"
 ALERT_EMAIL="${ALERT_EMAIL:-}"; SMTP_HOST="${SMTP_HOST:-smtp.gmail.com}"; SMTP_PORT="${SMTP_PORT:-465}"
 SMTP_USER="${SMTP_USER:-}"; SMTP_PASS="${SMTP_PASS:-}"; SMTP_FROM="${SMTP_FROM:-${SMTP_USER:-}}"
@@ -69,6 +74,22 @@ alert() {
         --mail-from "$SMTP_FROM" --mail-rcpt "$ALERT_EMAIL" --user "${SMTP_USER}:${SMTP_PASS}" -T - >/dev/null 2>&1 \
       || echo "(backup: email failed)"
   fi
+}
+
+send_telegram_file() {
+  local path="$1" caption="$2" size
+  [ "$BACKUP_TELEGRAM_FILE" = "1" ] || return 0
+  [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ] || { alert WARNING "BACKUP_TELEGRAM_FILE=1 nhưng thiếu TELEGRAM_BOT_TOKEN/CHAT_ID"; return 1; }
+  command -v curl >/dev/null 2>&1 || return 1
+  size="$(stat -c %s "$path" 2>/dev/null || echo 0)"
+  if [ "$size" -gt $((TELEGRAM_MAX_MB * 1024 * 1024)) ]; then
+    alert WARNING "backup $(basename "$path") > ${TELEGRAM_MAX_MB}MB — vượt giới hạn Telegram, không gửi file (local vẫn giữ)"
+    return 1
+  fi
+  curl -fsS -m 120 -F "chat_id=${TELEGRAM_CHAT_ID}" -F "document=@${path}" -F "caption=${caption}" \
+    "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument" >/dev/null 2>&1 \
+    || { alert CRITICAL "gửi file backup qua Telegram THẤT BẠI: $(basename "$path")"; return 1; }
+  return 0
 }
 
 detect_container() {
@@ -125,6 +146,11 @@ run_backup() {
     else
       alert WARNING "rclone not installed — offsite upload skipped (local backup kept)"
     fi
+  fi
+
+  # Offsite via Telegram file (simplest — sends the dump to the chat).
+  if [ "$BACKUP_TELEGRAM_FILE" = "1" ]; then
+    send_telegram_file "$out" "AICP DB backup — ${HOST} — $(basename "$out") (${human})" && offsite="${offsite} +telegram"
   fi
 
   echo "$(date -u +%FT%TZ) [OK] backup $out ($human) from $ct${offsite}"
