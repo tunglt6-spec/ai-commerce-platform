@@ -27,8 +27,18 @@ set -u
 #   SMTP_USER=your@gmail.com
 #   SMTP_PASS=<16-char Gmail App Password>
 ENV_FILE="${DISK_ALERT_ENV:-/etc/aicp-disk-alert.env}"
-# shellcheck disable=SC1090
-[ -f "$ENV_FILE" ] && . "$ENV_FILE"
+# Load KEY=VALUE lines WITHOUT sourcing — so a value containing <, spaces, or other
+# shell metacharacters can't break the script or execute code (defensive parsing).
+if [ -f "$ENV_FILE" ]; then
+  while IFS= read -r _line || [ -n "$_line" ]; do
+    _line="${_line%$'\r'}"                       # strip CR (CRLF files)
+    case "$_line" in '' | \#*) continue ;; esac  # skip blanks/comments
+    [ "${_line#*=}" = "$_line" ] && continue     # no '=' → skip
+    _k="${_line%%=*}"; _v="${_line#*=}"
+    case "$_k" in [A-Za-z_]*) export "$_k=$_v" ;; esac
+  done <"$ENV_FILE"
+  unset _line _k _v
+fi
 
 WARN="${DISK_WARN:-85}"
 CRIT="${DISK_CRIT:-92}"
