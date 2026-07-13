@@ -45,5 +45,8 @@ export async function runWithoutTenantGuard<T>(fn: () => Promise<T>): Promise<T>
   const base: TenantStore = s
     ? { tenantId: s.tenantId, isPlatformAdmin: s.isPlatformAdmin, bypass: true }
     : { tenantId: null, isPlatformAdmin: false, bypass: true };
-  return als.run(base, fn);
+  // MUST await inside the run: Prisma queries are LAZY, so returning fn() unawaited would
+  // let the query execute AFTER als.run() has popped the context (bypass lost → blocked).
+  // Awaiting here keeps the base context alive until fn resolves.
+  return als.run(base, async () => await fn());
 }
