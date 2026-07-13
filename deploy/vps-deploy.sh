@@ -35,6 +35,13 @@ echo "    IMAGE_TAG=${IMAGE_TAG:-latest}"
 docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" pull ai-commerce-api ai-commerce-web
 docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d --remove-orphans
 docker image prune -f >/dev/null 2>&1 || true
+# Reclaim disk: drop OLD ai-commerce GHCR images (each deploy pushes a new :sha tag, and
+# they pile up until / fills to 100% → Postgres 'rejecting connections' → 502). `docker
+# rmi` refuses images used by a live container, so the current backend/web images are
+# kept; only stale versions are removed. Scoped to ai-commerce (PickleFund untouched).
+docker image ls 'ghcr.io/tunglt6-spec/ai-commerce-*' -q 2>/dev/null | sort -u | while read -r _img; do
+  docker rmi "$_img" >/dev/null 2>&1 || true
+done
 
 echo "==> [3/6] Wait for backend to be healthy (migrations run on boot)"
 for i in $(seq 1 40); do
