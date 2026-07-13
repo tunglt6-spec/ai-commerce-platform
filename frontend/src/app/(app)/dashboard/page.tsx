@@ -144,9 +144,9 @@ export default function DashboardPage() {
               </Button>
             </div>
             {!trend ? (
-              <div className="rounded-2xl bg-ink-950 p-5 text-white">
-                <Sparkles className="mb-4 h-5 w-5 text-brand-300" />
-                <p className="text-sm leading-6 text-ink-100">
+              <div className="rounded-2xl bg-gradient-ai p-5 text-white">
+                <Sparkles className="mb-4 h-5 w-5 text-white/90" aria-hidden />
+                <p className="text-sm leading-6 text-white/90">
                   {canManage
                     ? 'Chạy phân tích để tìm sản phẩm đang tăng tốc, nhóm hàng cần đẩy nội dung và rủi ro tồn kho.'
                     : 'Cần quyền Manager để chạy phân tích xu hướng.'}

@@ -20,10 +20,10 @@ export function Button({
   ...props
 }: ButtonProps) {
   const variants = {
-    primary: 'bg-ink-900 text-white shadow-[0_10px_24px_rgba(18,24,21,.18)] hover:bg-brand-800',
-    secondary: 'border border-ink-200 bg-white/80 text-ink-800 hover:border-brand-300 hover:bg-brand-50',
+    primary: 'bg-brand-600 text-white shadow-[0_8px_20px_rgba(124,58,237,.24)] hover:bg-brand-700 active:bg-brand-800',
+    secondary: 'border border-ink-200 bg-white text-ink-800 hover:border-brand-300 hover:bg-brand-50',
     ghost: 'bg-transparent text-ink-600 hover:bg-ink-100 hover:text-ink-900',
-    danger: 'bg-signal-rose text-white hover:bg-rose-700',
+    danger: 'bg-error text-white shadow-[0_8px_20px_rgba(239,68,68,.22)] hover:bg-error/90 active:bg-error/80',
   };
   const sizes = { sm: 'h-8 px-3 text-xs', md: 'h-10 px-4 text-sm' };
   return (
@@ -76,18 +76,18 @@ export function PageHeader({
   return (
     <div
       className={cn(
-        'relative overflow-hidden rounded-[1.75rem] border border-ink-900/10 bg-ink-900 px-5 py-6 text-white shadow-panel sm:px-7',
+        'relative overflow-hidden rounded-[1.75rem] border border-white/15 bg-gradient-primary px-5 py-6 text-white shadow-panel sm:px-7',
         className,
       )}
     >
-      <div className="absolute inset-0 bg-grid bg-[length:28px_28px] opacity-35" />
-      <div className="absolute -right-20 -top-24 h-64 w-64 rounded-full bg-brand-400/25 blur-3xl" />
-      <div className="absolute bottom-0 right-16 h-20 w-40 rounded-full bg-signal-amber/20 blur-2xl" />
+      <div className="absolute inset-0 bg-grid bg-[length:28px_28px] opacity-20" />
+      <div className="absolute -right-20 -top-24 h-64 w-64 rounded-full bg-white/20 blur-3xl" />
+      <div className="absolute bottom-0 right-16 h-20 w-40 rounded-full bg-pink/30 blur-2xl" />
       <div className="relative flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
         <div className="max-w-3xl">
-          {eyebrow && <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-brand-200">{eyebrow}</p>}
+          {eyebrow && <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-white/75">{eyebrow}</p>}
           <h1 className="text-3xl font-semibold leading-tight text-white sm:text-4xl">{title}</h1>
-          {description && <p className="mt-2 max-w-2xl text-sm leading-6 text-ink-100/82">{description}</p>}
+          {description && <p className="mt-2 max-w-2xl text-sm leading-6 text-white/85">{description}</p>}
         </div>
         {action && <div className="flex shrink-0 flex-wrap gap-2">{action}</div>}
       </div>
@@ -200,11 +200,19 @@ export function LoadingState({ label = 'Đang tải dữ liệu' }: { label?: st
   );
 }
 
-export function EmptyState({ title = 'Chưa có dữ liệu', hint }: { title?: string; hint?: string }) {
+export function EmptyState({
+  title = 'Chưa có dữ liệu',
+  hint,
+  icon: Icon = Inbox,
+}: {
+  title?: string;
+  hint?: string;
+  icon?: React.ElementType;
+}) {
   return (
     <div className="flex min-h-[220px] flex-col items-center justify-center gap-3 px-6 py-14 text-center">
-      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-ink-100 text-ink-500">
-        <Inbox className="h-6 w-6" />
+      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-50 text-brand-600">
+        <Icon className="h-6 w-6" aria-hidden />
       </div>
       <div>
         <p className="text-sm font-semibold text-ink-800">{title}</p>

@@ -35,7 +35,7 @@ export default function OnboardingPage() {
               className={
                 'flex items-center gap-2 rounded-2xl border px-3.5 py-2 text-sm font-semibold transition ' +
                 (step === s.n
-                  ? 'border-transparent bg-ink-900 text-white'
+                  ? 'border-transparent bg-brand-600 text-white'
                   : step > s.n
                     ? 'border-brand-200 bg-brand-50 text-brand-700'
                     : 'border-ink-200 bg-white text-ink-500')

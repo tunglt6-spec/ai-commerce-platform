@@ -47,7 +47,7 @@ export default function OrdersPage() {
             key={s || 'all'}
             onClick={() => setStatus(s)}
             className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
-              status === s ? 'bg-ink-900 text-white shadow-card' : 'text-ink-600 hover:bg-ink-100'
+              status === s ? 'bg-brand-600 text-white shadow-card' : 'text-ink-600 hover:bg-ink-100'
             }`}
           >
             {STATUS_LABELS[s]}
