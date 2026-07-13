@@ -37,6 +37,11 @@ load_env() {
 load_env "$ENV_PROD"    # POSTGRES_USER / POSTGRES_PASSWORD / POSTGRES_DB
 load_env "$ALERT_ENV"   # TELEGRAM_* / SMTP_* / DISK_ALERT_WEBHOOK
 
+# Offsite (rclone). Set BACKUP_RCLONE_REMOTE in $ALERT_ENV, e.g. "gdrive:" (folder pinned
+# via root_folder_id in the rclone remote) or "gdrive:aicp-db-backups". Empty = local only.
+RCLONE_REMOTE="${BACKUP_RCLONE_REMOTE:-}"
+RCLONE_KEEP_DAYS="${BACKUP_RCLONE_KEEP_DAYS:-0}"  # >0 = also delete remote dumps older than N days
+
 TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-}"; TELEGRAM_CHAT_ID="${TELEGRAM_CHAT_ID:-}"
 ALERT_EMAIL="${ALERT_EMAIL:-}"; SMTP_HOST="${SMTP_HOST:-smtp.gmail.com}"; SMTP_PORT="${SMTP_PORT:-465}"
 SMTP_USER="${SMTP_USER:-}"; SMTP_PASS="${SMTP_PASS:-}"; SMTP_FROM="${SMTP_FROM:-${SMTP_USER:-}}"
@@ -98,12 +103,32 @@ run_backup() {
     exit 1
   fi
 
-  # Retention: keep newest $KEEP.
+  # Retention: keep newest $KEEP locally.
   ls -1t "$BACKUP_DIR"/backup_*.sql.gz 2>/dev/null | tail -n +"$((KEEP + 1))" | xargs -r rm -f
 
   local human; human="$(du -h "$out" 2>/dev/null | cut -f1)"
-  echo "$(date -u +%FT%TZ) [OK] backup $out ($human) from $ct"
-  [ "$NOTIFY_ON_SUCCESS" = "1" ] && alert OK "backup done: $(basename "$out") ($human), keep=$KEEP" || true
+
+  # Offsite copy (rclone) — the local backup already succeeded, so an upload failure is
+  # alerted but does NOT fail the run (local copy is still safe).
+  local offsite=""
+  if [ -n "$RCLONE_REMOTE" ]; then
+    if command -v rclone >/dev/null 2>&1; then
+      if rclone copy "$out" "$RCLONE_REMOTE" --transfers 1 --retries 3 --contimeout 30s 2>>"$LOG"; then
+        offsite=" +offsite($RCLONE_REMOTE)"
+        # Optional offsite retention: delete remote dumps older than N days (0 = keep all).
+        if [ "$RCLONE_KEEP_DAYS" -gt 0 ] 2>/dev/null; then
+          rclone delete "$RCLONE_REMOTE" --include 'backup_*.sql.gz' --min-age "${RCLONE_KEEP_DAYS}d" >>"$LOG" 2>&1 || true
+        fi
+      else
+        alert CRITICAL "offsite upload FAILED to ${RCLONE_REMOTE} (local backup kept: $(basename "$out"))"
+      fi
+    else
+      alert WARNING "rclone not installed — offsite upload skipped (local backup kept)"
+    fi
+  fi
+
+  echo "$(date -u +%FT%TZ) [OK] backup $out ($human) from $ct${offsite}"
+  [ "$NOTIFY_ON_SUCCESS" = "1" ] && alert OK "backup done: $(basename "$out") ($human)${offsite}, keep=$KEEP" || true
 }
 
 case "${1:-run}" in
