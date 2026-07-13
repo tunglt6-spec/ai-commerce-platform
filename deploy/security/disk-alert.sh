@@ -45,6 +45,12 @@ SMTP_USER="${SMTP_USER:-}"
 SMTP_PASS="${SMTP_PASS:-}"
 SMTP_FROM="${SMTP_FROM:-${SMTP_USER:-}}"
 
+# Telegram (via Bot API; most reliable from a VPS). Optional — set in $ENV_FILE:
+#   TELEGRAM_BOT_TOKEN=<from @BotFather>
+#   TELEGRAM_CHAT_ID=<your chat/group id>
+TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-}"
+TELEGRAM_CHAT_ID="${TELEGRAM_CHAT_ID:-}"
+
 disk_pct() { df --output=pcent "$MOUNT" 2>/dev/null | tail -1 | tr -dc '0-9'; }
 
 send_email() {
@@ -59,12 +65,24 @@ send_email() {
     || echo "(disk-alert: email send failed — check SMTP creds / Gmail App Password)"
 }
 
+send_telegram() {
+  local text="$1"
+  [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ] || return 0
+  command -v curl >/dev/null 2>&1 || return 0
+  curl -fsS -m 10 -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+    --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+    --data-urlencode "text=${text}" \
+    -d "disable_web_page_preview=true" >/dev/null 2>&1 \
+    || echo "(disk-alert: telegram post failed — check bot token / chat id)"
+}
+
 notify() {
   local level="$1" msg="$2" line
   line="$(date -u +%FT%TZ) [$level] ${HOST} ${MOUNT} ${msg}"
   echo "$line"
   echo "$line" >>"$LOG" 2>/dev/null || true
   command -v logger >/dev/null 2>&1 && logger -t aicp-disk "$level $MOUNT $msg" || true
+  send_telegram "[AICP disk ${level}] ${HOST} — disk ${MOUNT} ${msg}"
   if [ -n "$WEBHOOK" ]; then
     # {text} suits Slack, {content} suits Discord — send both so either works.
     curl -fsS -m 10 -X POST -H 'Content-Type: application/json' \
