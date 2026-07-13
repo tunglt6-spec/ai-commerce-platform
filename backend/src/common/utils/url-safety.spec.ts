@@ -42,6 +42,10 @@ describe('SSRF url-safety guard', () => {
       await expect(assertSafeExternalUrl('http://localhost/')).rejects.toThrow('SSRF_BLOCKED');
       await expect(assertSafeExternalUrl('http://foo.internal/')).rejects.toThrow('SSRF_BLOCKED');
     });
+    it('rejects trailing-dot forms (localhost. / foo.internal.)', async () => {
+      await expect(assertSafeExternalUrl('http://localhost./')).rejects.toThrow('SSRF_BLOCKED');
+      await expect(assertSafeExternalUrl('http://foo.internal./')).rejects.toThrow('SSRF_BLOCKED');
+    });
     it('allows a public IP-literal https URL', async () => {
       await expect(assertSafeExternalUrl('https://8.8.8.8/health')).resolves.toBeUndefined();
     });

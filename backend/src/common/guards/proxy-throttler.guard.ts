@@ -16,10 +16,12 @@ import { ThrottlerGuard } from '@nestjs/throttler';
 @Injectable()
 export class ProxyThrottlerGuard extends ThrottlerGuard {
   protected async getTracker(req: Record<string, any>): Promise<string> {
+    // Trust ONLY Cloudflare's authenticated client header (origin is locked to CF ingress —
+    // see AICP-H21). Do NOT parse X-Forwarded-For directly: its left-most entry is
+    // client-controlled, so rotating it would reset the throttle bucket every request and
+    // defeat brute-force protection. Fallback is req.ip (bounded via Express trust-proxy).
     const cf = req.headers?.['cf-connecting-ip'];
     if (typeof cf === 'string' && cf.trim()) return cf.trim();
-    const xff = req.headers?.['x-forwarded-for'];
-    if (typeof xff === 'string' && xff.trim()) return xff.split(',')[0].trim();
     return req.ip || req.socket?.remoteAddress || 'unknown';
   }
 }

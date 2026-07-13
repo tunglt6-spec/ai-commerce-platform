@@ -42,12 +42,14 @@ export const TENANT_SCOPED_MODELS = new Set<string>([
 ]);
 
 /**
- * Set-operating actions where a missing tenant filter risks a cross-tenant MASS leak
- * (returns/affects every tenant's rows). Single-record ops (findUnique/findFirst/create)
- * are intentionally excluded — they have many legitimate non-tenant uses and cannot leak
- * a set. The application still scopes those explicitly.
+ * Actions that accept an arbitrary `where` and could return/affect other tenants' rows if
+ * unscoped. `findFirst` is included: it takes a free-form where (not a unique key), so a
+ * missing tenant filter could match another tenant's row. `findUnique`/`update`/`delete`
+ * are NOT enforceable here — they key on a UNIQUE field, so a `tenantId` cannot be added to
+ * their `where`; those call sites must scope manually (the app uses `findFirst({ id, tenantId })`
+ * instead, which this guard now backstops).
  */
-const ENFORCED_ACTIONS = new Set(['findMany', 'updateMany', 'deleteMany', 'count', 'aggregate', 'groupBy']);
+const ENFORCED_ACTIONS = new Set(['findMany', 'findFirst', 'updateMany', 'deleteMany', 'count', 'aggregate', 'groupBy']);
 
 /**
  * Whether a Prisma `where` constrains the query to EXACTLY `tenantId` — verifying the

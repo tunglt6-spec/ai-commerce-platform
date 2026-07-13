@@ -39,14 +39,11 @@ export function setTenant(tenantId: string, isPlatformAdmin: boolean): void {
  */
 export async function runWithoutTenantGuard<T>(fn: () => Promise<T>): Promise<T> {
   const s = als.getStore();
-  if (s) {
-    const prev = s.bypass;
-    s.bypass = true;
-    try {
-      return await fn();
-    } finally {
-      s.bypass = prev;
-    }
-  }
-  return als.run({ tenantId: null, isPlatformAdmin: false, bypass: true }, fn);
+  // Run in a NESTED context with bypass=true rather than mutating the shared store —
+  // so a concurrent sibling (e.g. inside a Promise.all in the same request) never observes
+  // the bypass flag. The bypass applies only to the async scope of fn.
+  const base: TenantStore = s
+    ? { tenantId: s.tenantId, isPlatformAdmin: s.isPlatformAdmin, bypass: true }
+    : { tenantId: null, isPlatformAdmin: false, bypass: true };
+  return als.run(base, fn);
 }
