@@ -1,8 +1,6 @@
 import { lookup } from 'dns/promises';
-import { lookup as dnsLookupCb } from 'dns';
 import { isIP } from 'net';
 import ipaddr from 'ipaddr.js';
-import { Agent } from 'undici';
 
 /**
  * SSRF guard for server-side fetches of externally/tenant-supplied URLs
@@ -58,29 +56,6 @@ export function isPrivateAddress(ip: string): boolean {
   }
   return v6.range() !== 'unicast';
 }
-
-/**
- * undici dispatcher that re-validates the address AT CONNECT TIME using a custom DNS
- * lookup — so the IP that is actually connected to is the same one that was checked. This
- * closes the DNS-rebinding TOCTOU between `assertSafeExternalUrl` and `fetch()`. Pass it as
- * `fetch(url, { dispatcher: ssrfSafeDispatcher })`. TLS still uses the original hostname
- * for SNI/cert validation; only the resolved IP is pinned.
- */
-export const ssrfSafeDispatcher = new Agent({
-  connect: {
-    lookup(hostname: string, options: any, callback: (err: Error | null, address: string, family: number) => void) {
-      dnsLookupCb(hostname, { ...options, all: true }, (err, addresses) => {
-        if (err) return callback(err, '', 0);
-        const list = Array.isArray(addresses) ? addresses : [];
-        if (!list.length) return callback(new Error('SSRF_BLOCKED: host does not resolve'), '', 0);
-        for (const a of list) {
-          if (isPrivateAddress(a.address)) return callback(new Error('SSRF_BLOCKED: resolves to private address'), '', 0);
-        }
-        callback(null, list[0].address, list[0].family);
-      });
-    },
-  },
-});
 
 /**
  * Validate a URL is safe to fetch server-side. Throws Error('SSRF_BLOCKED: ...') if not.

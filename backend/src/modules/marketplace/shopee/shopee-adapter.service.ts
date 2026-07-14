@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { createHmac } from 'crypto';
-import { assertSafeExternalUrl, ssrfSafeDispatcher } from '../../../common/utils/url-safety';
+import { assertSafeExternalUrl } from '../../../common/utils/url-safety';
 import { ShopeeConfig } from './shopee.config';
 
 export interface ShopeeTokenResult {
@@ -249,7 +249,7 @@ export class ShopeeAdapterService {
     try {
       // redirect:'error' — a validated public URL must not 302 into an internal target (SSRF);
       // dispatcher pins the validated IP at connect time (anti DNS-rebind TOCTOU).
-      const imgRes = await fetch(imageUrl, { signal: controller.signal, redirect: 'error', dispatcher: ssrfSafeDispatcher } as any);
+      const imgRes = await fetch(imageUrl, { signal: controller.signal, redirect: 'error' });
       if (!imgRes.ok) return { ok: false, error: `IMAGE_FETCH_${imgRes.status}` };
       // Cap the download so a public-but-hostile URL can't exhaust memory.
       const MAX_IMAGE_BYTES = 10 * 1024 * 1024;

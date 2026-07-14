@@ -2,7 +2,7 @@ import { BadRequestException, Injectable, Logger, NotFoundException } from '@nes
 import { createHmac } from 'crypto';
 import { PrismaService } from '../../common/prisma/prisma.service';
 import { EncryptionService } from '../../common/crypto/encryption.service';
-import { assertSafeExternalUrl, ssrfSafeDispatcher } from '../../common/utils/url-safety';
+import { assertSafeExternalUrl } from '../../common/utils/url-safety';
 import { ConnectIntegrationDto } from './dto/integration.dto';
 
 export const PROVIDERS = [
@@ -125,8 +125,7 @@ export class IntegrationsService {
         headers: { Authorization: `Bearer ${secret}`, Accept: 'application/json' },
         signal: controller.signal,
         redirect: 'error', // don't follow redirects into an internal target (SSRF)
-        dispatcher: ssrfSafeDispatcher, // pin the validated IP at connect (anti DNS-rebind)
-      } as any);
+      });
       if (res.ok) {
         const updated = await this.upsert(tenantId, provider, {
           status: 'connected',
@@ -184,8 +183,7 @@ export class IntegrationsService {
             body,
             signal: controller.signal,
             redirect: 'error', // don't follow redirects into an internal target (SSRF)
-            dispatcher: ssrfSafeDispatcher, // pin the validated IP at connect (anti DNS-rebind)
-          } as any).finally(() => clearTimeout(timeout));
+          }).finally(() => clearTimeout(timeout));
           if (!res.ok) {
             await this.upsert(tenantId, t.provider, { lastError: `Webhook ${event}: HTTP ${res.status}` });
           }
