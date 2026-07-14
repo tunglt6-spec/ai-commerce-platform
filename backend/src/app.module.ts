@@ -33,6 +33,7 @@ import { AnalyzeModule } from './modules/analyze/analyze.module';
 import { FulfillmentModule } from './modules/fulfillment/fulfillment.module';
 import { WorkflowModule } from './modules/workflow/workflow.module';
 import { IntegrationsModule } from './modules/integrations/integrations.module';
+import { EmailModule } from './modules/integrations/email/email.module';
 import { RavingFanModule } from './modules/raving-fan/raving-fan.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
 import { ReportsModule } from './modules/reports/reports.module';
@@ -76,6 +77,7 @@ import { MarketplaceModule } from './modules/marketplace/marketplace.module';
     FulfillmentModule,
     WorkflowModule,
     IntegrationsModule,
+    EmailModule,
     RavingFanModule,
     UploadsModule,
     ReportsModule,
