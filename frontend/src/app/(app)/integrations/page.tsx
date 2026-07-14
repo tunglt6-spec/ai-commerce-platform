@@ -4,7 +4,7 @@ import { Badge, Button, Card, CardBody, ErrorState, Input, Label, LoadingState, 
 import { api, ApiError } from '@/lib/api';
 import { useApi } from '@/lib/use-api';
 import { usePermissions } from '@/lib/roles';
-import { ChevronRight, Plug, ShoppingBag } from 'lucide-react';
+import { ChevronRight, Mail, Plug, ShoppingBag } from 'lucide-react';
 import Link from 'next/link';
 import { useState } from 'react';
 
@@ -71,6 +71,23 @@ export default function IntegrationsPage() {
                 Shopee — kết nối marketplace thật <Badge tone="active">OAuth v2</Badge>
               </p>
               <p className="text-xs text-ink-500">Cấp quyền cửa hàng qua Shopee Open Platform + đồng bộ đơn hàng thật (read-only).</p>
+            </div>
+            <ChevronRight className="h-5 w-5 shrink-0 text-ink-300 transition group-hover:text-brand-600" />
+          </CardBody>
+        </Card>
+      </Link>
+
+      <Link href="/integrations/email">
+        <Card className="group transition duration-200 hover:-translate-y-0.5 hover:shadow-panel">
+          <CardBody className="flex items-center gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-brand-50 text-brand-600">
+              <Mail className="h-6 w-6" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="flex items-center gap-2 text-sm font-semibold text-ink-900">
+                Email — gửi thật qua SMTP <Badge tone="active">SMTP</Badge>
+              </p>
+              <p className="text-xs text-ink-500">Cấu hình SMTP (Gmail App Password / SendGrid…) để gửi email giao dịch & thông báo. Khoá mã hoá.</p>
             </div>
             <ChevronRight className="h-5 w-5 shrink-0 text-ink-300 transition group-hover:text-brand-600" />
           </CardBody>
