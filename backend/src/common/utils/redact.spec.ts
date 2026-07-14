@@ -53,6 +53,16 @@ describe('secret redaction', () => {
     expect(out.normal).toBe('hello world');
   });
 
+  it('masks credentials embedded in a URL / connection string', () => {
+    const out: any = redactSecrets({
+      DATABASE_URL: 'postgresql://appuser:S3cretPass@db-host:5432/app',
+      site: 'https://example.com/path?x=1',
+    });
+    expect(out.DATABASE_URL).toBe('postgresql://appuser:«redacted»@db-host:5432/app');
+    expect(out.DATABASE_URL).not.toContain('S3cretPass');
+    expect(out.site).toBe('https://example.com/path?x=1'); // no userinfo → untouched
+  });
+
   it('handles arrays and does not mutate input', () => {
     const input = { list: [{ token: 't1' }, { ok: 1 }] };
     const out: any = redactSecrets(input);

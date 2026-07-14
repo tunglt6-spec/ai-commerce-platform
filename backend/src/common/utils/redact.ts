@@ -20,6 +20,11 @@ const MASK = '«redacted»';
 
 /** Redact a JWT / long opaque token appearing inside a string value. */
 function maskTokenLikeString(v: string): string {
+  // Credentials embedded in a URL / connection string: scheme://user:pass@host...
+  // (e.g. DATABASE_URL=postgresql://user:s3cret@db:5432/app). Mask the password portion.
+  if (/^[a-z][a-z0-9+.-]*:\/\/[^:@\s/]+:[^@\s/]+@/i.test(v)) {
+    return v.replace(/^([a-z][a-z0-9+.-]*:\/\/[^:@\s/]+):[^@\s/]+@/i, `$1:${MASK}@`);
+  }
   // JWT (three base64url segments)
   if (/^[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{5,}$/.test(v)) return MASK;
   // Bearer <token>

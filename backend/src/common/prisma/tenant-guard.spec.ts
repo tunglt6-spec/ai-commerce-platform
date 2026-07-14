@@ -40,10 +40,15 @@ describe('tenant guard (defense-in-depth)', () => {
     it('ignores non-tenant models', () => {
       expect(shouldBlockQuery('User', 'findMany', { where: { email: 'a@b.c' } }, authed)).toBe(false);
     });
-    it('ignores single-record ops (findUnique/findFirst/create)', () => {
+    it('ignores unique-key ops (findUnique/update/delete/create) — Prisma where cannot carry tenantId', () => {
       expect(shouldBlockQuery('Product', 'findUnique', { where: { id: 'x' } }, authed)).toBe(false);
-      expect(shouldBlockQuery('Product', 'findFirst', { where: { id: 'x' } }, authed)).toBe(false);
+      expect(shouldBlockQuery('Product', 'update', { where: { id: 'x' } }, authed)).toBe(false);
+      expect(shouldBlockQuery('Product', 'delete', { where: { id: 'x' } }, authed)).toBe(false);
       expect(shouldBlockQuery('Product', 'create', {}, authed)).toBe(false);
+    });
+    it('ENFORCES findFirst (arbitrary where) — blocks unscoped, allows caller-scoped', () => {
+      expect(shouldBlockQuery('Product', 'findFirst', { where: { id: 'x' } }, authed)).toBe(true);
+      expect(shouldBlockQuery('Product', 'findFirst', { where: { id: 'x', tenantId: 't-1' } }, authed)).toBe(false);
     });
     it('allows platform admin, explicit bypass, and no-store (system/startup)', () => {
       expect(shouldBlockQuery('Product', 'findMany', { where: {} }, { tenantId: 't-1', isPlatformAdmin: true, bypass: false })).toBe(false);

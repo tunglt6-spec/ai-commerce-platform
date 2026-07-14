@@ -99,8 +99,9 @@ export function validateEnv(config: Record<string, unknown>): EnvVars {
   }
 
   // Production hardening: integration/token encryption must use a dedicated 32-byte
-  // key, never the dev fallback that derives it from the JWT secret.
-  if (validated.NODE_ENV === 'production') {
+  // key, never the dev fallback that derives it from the JWT secret. Match any
+  // 'prod'* value (catches a 'prod' typo) so hardening can't be silently skipped.
+  if (/^prod/i.test(validated.NODE_ENV)) {
     const bytes = encKeyBytes(validated.INTEGRATION_ENC_KEY);
     if (bytes !== 32) {
       throw new Error(
