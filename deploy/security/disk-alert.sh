@@ -7,11 +7,16 @@
 #   bash deploy/security/disk-alert.sh install-cron # add an idempotent */15min root cron
 #   bash deploy/security/disk-alert.sh test         # send a test alert then exit
 #
-# Behaviour:
-#   - usage >= DISK_WARN  (default 85%): send a WARNING.
-#   - usage >= DISK_CRIT  (default 92%): send CRITICAL + auto-reclaim (prune old
-#     ai-commerce images [rmi refuses in-use → live images kept] + docker build cache),
-#     then re-measure and report. PickleFund images untouched.
+# Behaviour (self-healing + anti-spam):
+#   - usage >= DISK_WARN (default 85%): auto-reclaim GENTLY (build cache + images unused
+#     >72h → keeps recent rollback targets, live images always kept), re-measure, then
+#     WARN — but only on escalation or once per DISK_REALERT_HOURS (default 6h), so it
+#     never spams every 15 min again.
+#   - usage >= DISK_CRIT (default 92%): auto-reclaim AGGRESSIVELY (old ai-commerce images
+#     [rmi refuses in-use → live kept] + all unused images + build cache), re-measure, CRIT.
+#   - drops back < DISK_WARN: send ONE "RECOVERED" notice, then go quiet.
+#   PickleFund's in-use images are never removed. Volumes are NEVER touched.
+#   State (last level + last-notify time) persisted in $DISK_ALERT_STATE.
 #
 # Alert channels (all best-effort, none required):
 #   - stdout (cron MAILTO gets it if mail is configured)
@@ -45,6 +50,8 @@ CRIT="${DISK_CRIT:-92}"
 MOUNT="${DISK_MOUNT:-/}"
 WEBHOOK="${DISK_ALERT_WEBHOOK:-}"
 LOG="${DISK_ALERT_LOG:-/var/log/aicp-disk-alert.log}"
+STATE="${DISK_ALERT_STATE:-/var/lib/aicp-disk-alert.state}"
+REALERT_SECS=$(( ${DISK_REALERT_HOURS:-6} * 3600 ))   # min gap between repeat WARN/CRIT pings
 HOST="$(hostname 2>/dev/null || echo vps)"
 
 # Email (via curl SMTP; no MTA needed). All optional — set in $ENV_FILE.
@@ -102,13 +109,27 @@ notify() {
   send_email "[AICP disk ${level}] ${HOST} — disk ${MOUNT}" "$line"
 }
 
+# reclaim <warn|crit>. Both keep in-use images (rmi/prune refuse live) + NEVER touch volumes.
 reclaim() {
   command -v docker >/dev/null 2>&1 || return 0
-  docker image ls 'ghcr.io/tunglt6-spec/ai-commerce-*' -q 2>/dev/null | sort -u | while read -r img; do
-    [ -n "$img" ] && docker rmi "$img" >/dev/null 2>&1 || true
-  done
   docker builder prune -af >/dev/null 2>&1 || true
-  docker image prune -f >/dev/null 2>&1 || true
+  if [ "${1:-warn}" = crit ]; then
+    # Aggressive: drop old ai-commerce tags + ALL unused images (both apps' stale :sha).
+    docker image ls 'ghcr.io/tunglt6-spec/ai-commerce-*' -q 2>/dev/null | sort -u | while read -r img; do
+      [ -n "$img" ] && docker rmi "$img" >/dev/null 2>&1 || true
+    done
+    docker image prune -af >/dev/null 2>&1 || true
+  else
+    # Gentle: only images unused for >72h → keeps recent rollback targets.
+    docker image prune -af --filter 'until=72h' >/dev/null 2>&1 || true
+  fi
+  docker network prune -f >/dev/null 2>&1 || true
+}
+
+level_of() { # echo OK|WARNING|CRITICAL for a percentage
+  if   [ "$1" -ge "$CRIT" ]; then echo CRITICAL
+  elif [ "$1" -ge "$WARN" ]; then echo WARNING
+  else echo OK; fi
 }
 
 install_cron() {
@@ -122,18 +143,46 @@ install_cron() {
 }
 
 run_check() {
-  local u u2
+  local u lvl last_lvl last_ts now
   u="$(disk_pct)"
   if [ -z "$u" ]; then echo "disk-alert: cannot read usage of $MOUNT"; return 0; fi
-  if [ "$u" -ge "$CRIT" ]; then
-    notify CRITICAL "at ${u}% (>= ${CRIT}%) — auto-reclaiming disk"
-    reclaim
-    u2="$(disk_pct)"
-    notify CRITICAL "after reclaim: ${u2:-?}%"
-  elif [ "$u" -ge "$WARN" ]; then
-    notify WARNING "at ${u}% (>= ${WARN}%)"
-  else
+  lvl="$(level_of "$u")"
+
+  # Self-heal FIRST: reclaim on any non-OK level, then re-measure so alerts reflect reality.
+  if [ "$lvl" != OK ]; then
+    if [ "$lvl" = CRITICAL ]; then reclaim crit; else reclaim warn; fi
+    u="$(disk_pct)"; lvl="$(level_of "${u:-0}")"
+  fi
+
+  # Load previous state: "LEVEL|lastNotifyEpoch".
+  last_lvl=OK; last_ts=0
+  if [ -f "$STATE" ]; then
+    IFS='|' read -r last_lvl last_ts <"$STATE" 2>/dev/null || { last_lvl=OK; last_ts=0; }
+    [ -n "$last_lvl" ] || last_lvl=OK
+    case "$last_ts" in ''|*[!0-9]*) last_ts=0 ;; esac
+  fi
+  now="$(date +%s)"
+
+  if [ "$lvl" = OK ]; then
+    if [ "$last_lvl" != OK ]; then           # dropped back below WARN → close the incident once
+      notify RECOVERED "back to ${u}% (< ${WARN}%) — OK"
+    fi
     echo "disk-alert: ${MOUNT} at ${u}% — OK"
+    printf 'OK|%s\n' "$now" >"$STATE" 2>/dev/null || true
+    return 0
+  fi
+
+  # WARNING/CRITICAL: ping only on escalation, or once per REALERT_SECS — else stay quiet.
+  if [ "$lvl" != "$last_lvl" ] || [ $(( now - last_ts )) -ge "$REALERT_SECS" ]; then
+    if [ "$lvl" = CRITICAL ]; then
+      notify CRITICAL "at ${u}% (>= ${CRIT}%) — auto-reclaim done"
+    else
+      notify WARNING "at ${u}% (>= ${WARN}%) — auto-reclaim tried; next ping in ${DISK_REALERT_HOURS:-6}h unless it worsens"
+    fi
+    printf '%s|%s\n' "$lvl" "$now" >"$STATE" 2>/dev/null || true   # reset cooldown from this notify
+  else
+    echo "disk-alert: ${MOUNT} at ${u}% [$lvl] — suppressed (cooldown)"
+    printf '%s|%s\n' "$lvl" "$last_ts" >"$STATE" 2>/dev/null || true  # keep last-notify time
   fi
 }
 

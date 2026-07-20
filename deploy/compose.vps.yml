@@ -29,6 +29,9 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
     networks: [commerce-net]
 
   ai-commerce-api:
@@ -73,6 +76,9 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
     networks: [commerce-net]
 
   ai-commerce-web:
@@ -86,6 +92,9 @@ services:
       - ai-commerce-api
     environment:
       NODE_ENV: production
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
     networks: [commerce-net]
 
 volumes:
