@@ -1,14 +1,14 @@
-# AI Commerce — deploy on the SHARED VPS that already runs PickleFund.
-# Coexists behind the existing picklefund-nginx (no own proxy, no host ports).
+# AI Commerce — chạy trên LAPTOP, phục vụ store.picklefund.uk qua Cloudflare Tunnel.
 #
-# IMPORTANT: service names are unique (ai-commerce-*) to avoid Docker DNS name
-# collisions with PickleFund's generic "backend"/"frontend" services when
-# picklefund-nginx is attached to this network.
+# So với compose.vps.yml: thêm ai-commerce-nginx (router, KHÔNG TLS) + cloudflared,
+# KHÔNG phụ thuộc picklefund-nginx, KHÔNG mở host port nào (tunnel outbound-only).
+# Web image dùng lại y nguyên (NEXT_PUBLIC_API_BASE_URL đã bake = https://store.picklefund.uk).
 #
-# Run from repo root:
-#   docker compose --env-file deploy/.env.prod -f deploy/compose.vps.yml up -d --build
-# Then bridge the existing nginx into this network (once):
-#   docker network connect commerce-net picklefund-nginx
+# Chạy từ repo root (laptop, Docker Desktop / WSL2):
+#   docker compose --env-file deploy/.env.laptop -f deploy/compose.laptop.yml pull
+#   docker compose --env-file deploy/.env.laptop -f deploy/compose.laptop.yml up -d
+#
+# Public hostname (Cloudflare Zero Trust → Tunnel): store.picklefund.uk → http://ai-commerce-nginx:80
 
 services:
   ai-commerce-db:
@@ -29,9 +29,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
-    logging:
-      driver: json-file
-      options: { max-size: "10m", max-file: "3" }
     networks: [commerce-net]
 
   ai-commerce-api:
@@ -76,13 +73,10 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
-    logging:
-      driver: json-file
-      options: { max-size: "10m", max-file: "3" }
     networks: [commerce-net]
 
   ai-commerce-web:
-    # NEXT_PUBLIC_API_BASE_URL is baked at image build time in CI (build job).
+    # NEXT_PUBLIC_API_BASE_URL baked ở CI (build job) = https://store.picklefund.uk → dùng lại y nguyên.
     image: ghcr.io/tunglt6-spec/ai-commerce-web:${IMAGE_TAG:-latest}
     container_name: ai-commerce-web
     restart: always
@@ -92,9 +86,31 @@ services:
       - ai-commerce-api
     environment:
       NODE_ENV: production
-    logging:
-      driver: json-file
-      options: { max-size: "10m", max-file: "3" }
+    networks: [commerce-net]
+
+  # Router nội bộ (thay vai trò picklefund-nginx trên VPS). KHÔNG TLS, KHÔNG host port.
+  ai-commerce-nginx:
+    image: nginx:1.27-alpine
+    container_name: ai-commerce-nginx
+    restart: always
+    depends_on:
+      - ai-commerce-api
+      - ai-commerce-web
+    volumes:
+      - ./nginx-laptop.conf:/etc/nginx/conf.d/default.conf:ro
+    networks: [commerce-net]
+
+  # Cloudflare Tunnel (managed từ dashboard). Outbound-only → không mở port router.
+  # TUNNEL_TOKEN lấy ở Zero Trust → Networks → Tunnels; để trong deploy/.env.laptop (chmod 600), KHÔNG commit.
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: ai-commerce-cloudflared
+    restart: always
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CF_TUNNEL_TOKEN}
+    depends_on:
+      - ai-commerce-nginx
     networks: [commerce-net]
 
 volumes:
