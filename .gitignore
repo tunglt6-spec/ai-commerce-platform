@@ -16,9 +16,12 @@ out/
 .env.*.local
 .env.prod
 deploy/.env.prod
+.env.laptop
+deploy/.env.laptop
 *.pem
 !.env.example
 !deploy/.env.prod.example
+!deploy/.env.laptop.example
 
 # Backups
 backups/
